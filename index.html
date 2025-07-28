@@ -62,50 +62,76 @@
         </div>
     </div>
 
-    <div id="success-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+    <div id="alert-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div class="bg-white p-8 rounded-xl shadow-2xl text-center fade-in">
-            <h2 class="text-2xl font-bold text-green-500 mb-4">주문이 완료되었습니다!</h2>
-            <p class="text-gray-700">맛있게 준비해드릴게요. 잠시만 기다려주세요.</p>
+            <h2 id="alert-title" class="text-2xl font-bold text-red-500 mb-4"></h2>
+            <p id="alert-message" class="text-gray-700"></p>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // --- 중요 ---
+        // 아래 firebaseConfig 객체를 본인의 Firebase 프로젝트 설정 값으로 교체해야 합니다.
+        // Firebase 콘솔 -> 프로젝트 설정 -> 일반 탭에서 'SDK 설정 및 구성' 아래의 '구성'을 선택하면 찾을 수 있습니다.
         const firebaseConfig = {
   		apiKey: "AIzaSyAWzxJrQROhzSnVJCmTEUDfpYn-TJqHbHQ",
   		authDomain: "order-4f8a2.firebaseapp.com",
- 		projectId: "order-4f8a2",
+  		projectId: "order-4f8a2",
   		storageBucket: "order-4f8a2.firebasestorage.app",
   		messagingSenderId: "69210404028",
   		appId: "1:69210404028:web:25fe58abbcbff4d1e9ccb9",
   		measurementId: "G-JBK15C76HS"
 		};
 
+
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
         let activeFestivalDay = null;
+        let activeDateString = null;
+        const submitOrderBtn = document.getElementById('submit-order');
 
-        // 페이지 로드 시 관리자가 설정한 '활성일' 정보를 가져옴
-        async function fetchActiveDay() {
+        function showAlert(title, message, duration = 2000) {
+            document.getElementById('alert-title').textContent = title;
+            document.getElementById('alert-message').textContent = message;
+            const modal = document.getElementById('alert-modal');
+            modal.classList.remove('hidden');
+            if(duration > 0) {
+                setTimeout(() => modal.classList.add('hidden'), duration);
+            }
+        }
+
+        async function fetchConfig() {
             const configRef = doc(db, "festivalConfig", "settings");
             try {
                 const docSnap = await getDoc(configRef);
                 if (docSnap.exists()) {
-                    activeFestivalDay = docSnap.data().activeDay;
-                    console.log("현재 활성일:", activeFestivalDay);
+                    const configData = docSnap.data();
+                    const activeDayNumber = configData.activeDay;
+                    const activeDayInfo = configData.dayTabs.find(d => d.day === activeDayNumber);
+
+                    if (activeDayInfo && activeDayInfo.date) {
+                        activeFestivalDay = activeDayInfo.day;
+                        activeDateString = activeDayInfo.date;
+                        submitOrderBtn.disabled = false;
+                    } else {
+                        showAlert("주문 불가", "현재 주문을 받고 있지 않습니다. 관리자에게 문의해주세요.", 0);
+                        submitOrderBtn.disabled = true;
+                    }
                 } else {
-                    console.log("설정 문서를 찾을 수 없습니다. 관리자 페이지에서 먼저 설정을 완료해주세요.");
-                    alert("주문 시스템이 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.");
+                    showAlert("시스템 오류", "주문 시스템 설정을 찾을 수 없습니다. 관리자에게 문의해주세요.", 0);
+                    submitOrderBtn.disabled = true;
                 }
             } catch (error) {
-                console.error("활성일 정보를 가져오는 중 오류 발생:", error);
-                alert("시스템 설정 정보를 불러오는 데 실패했습니다.");
+                console.error("설정 정보 로드 오류:", error);
+                showAlert("네트워크 오류", "시스템 설정 정보를 불러오는 데 실패했습니다.", 0);
+                submitOrderBtn.disabled = true;
             }
         }
-        fetchActiveDay();
+        fetchConfig();
 
         const menu = [
             { id: 'tteokbokki', name: '마약 떡볶이', price: 5000 },
@@ -123,13 +149,10 @@
             const clone = menuItemTemplate.content.cloneNode(true);
             clone.querySelector('h3').textContent = item.name;
             clone.querySelector('p').textContent = `${item.price.toLocaleString()}원`;
-            
             const [minusBtn, plusBtn] = clone.querySelectorAll('.quantity-change');
             const quantitySpan = clone.querySelector('.quantity');
-
             minusBtn.addEventListener('click', () => updateQuantity(item, -1, quantitySpan));
             plusBtn.addEventListener('click', () => updateQuantity(item, 1, quantitySpan));
-            
             menuSection.appendChild(clone);
             cart[item.id] = { ...item, quantity: 0 };
         });
@@ -145,13 +168,11 @@
 
         const cartItemsDiv = document.getElementById('cart-items');
         const totalPriceSpan = document.getElementById('total-price');
-        const submitOrderBtn = document.getElementById('submit-order');
 
         function updateCart() {
             cartItemsDiv.innerHTML = '';
             let total = 0;
             let hasItems = false;
-
             Object.values(cart).forEach(item => {
                 if (item.quantity > 0) {
                     hasItems = true;
@@ -162,56 +183,57 @@
                     total += item.price * item.quantity;
                 }
             });
-
             if (!hasItems) {
                 cartItemsDiv.innerHTML = '<p class="text-gray-500">카트가 비어있습니다.</p>';
             }
-
             totalPriceSpan.textContent = `${total.toLocaleString()}원`;
-            submitOrderBtn.disabled = total === 0;
         }
 
         submitOrderBtn.addEventListener('click', async () => {
-            if (activeFestivalDay === null) {
-                alert("주문 시스템이 준비되지 않았습니다. 관리자에게 문의해주세요.");
+            if (!activeFestivalDay || !activeDateString) {
+                showAlert("주문 불가", "현재 주문 접수 시간이 아닙니다. 관리자에게 문의해주세요.");
                 return;
             }
-            const tableNumberInput = document.getElementById('table-number');
-            const tableNumber = tableNumberInput.value;
-
+            const tableNumber = document.getElementById('table-number').value;
             if (!tableNumber) {
-                alert('테이블 번호를 입력해주세요!');
-                tableNumberInput.focus();
+                showAlert("입력 오류", "테이블 번호를 입력해주세요!");
                 return;
             }
 
-            const orderedItems = Object.values(cart).filter(item => item.quantity > 0).map(item => ({ name: item.name, quantity: item.quantity, price: item.price }));
+            const orderedItems = Object.values(cart).filter(item => item.quantity > 0);
             if (orderedItems.length === 0) {
-                alert('메뉴를 선택해주세요!');
+                showAlert("입력 오류", "메뉴를 선택해주세요!");
                 return;
             }
 
             const totalPrice = orderedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            
+            // 관리자가 설정한 날짜 + 현재 시간으로 최종 시간을 조합
+            const now = new Date();
+            const timeString = now.toTimeString().split(' ')[0]; // "HH:mm:ss"
+            const finalTimestamp = new Date(`${activeDateString}T${timeString}`);
 
             try {
-                // 주문 데이터에 'festivalDay' 필드를 추가하여 저장
                 await addDoc(collection(db, "orders"), {
                     tableNumber: parseInt(tableNumber),
-                    items: orderedItems,
+                    items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price })),
                     totalPrice: totalPrice,
                     status: "주문 접수 중",
-                    timestamp: serverTimestamp(),
-                    festivalDay: activeFestivalDay // 활성일 정보 추가
+                    timestamp: finalTimestamp, // 조합된 시간으로 저장
+                    festivalDay: activeFestivalDay
                 });
 
-                document.getElementById('success-modal').classList.remove('hidden');
-                setTimeout(() => { window.location.reload(); }, 2000);
+                showAlert("주문 완료!", "주문이 성공적으로 접수되었습니다.", 2000);
+                setTimeout(() => { window.location.reload(); }, 2100);
 
             } catch (e) {
-                console.error("Error adding document: ", e);
-                alert("주문 처리 중 오류가 발생했습니다. 다시 시도해주세요.");
+                console.error("주문 저장 오류: ", e);
+                showAlert("주문 실패", "주문 처리 중 오류가 발생했습니다. 다시 시도해주세요.");
             }
         });
     </script>
 </body>
 </html>
+```
+
+몇 가지 변경사항을 적용했습니다. `firebaseConfig` 변수 부분을 실제 설정값으로 쉽게 교체할 수 있도록 명확한 주석과 함께 전체 구조를 추가했습니다. Firebase 콘솔에서 복사한 본인의 설정값을 여기에 붙여넣으면 오류가 해결됩
