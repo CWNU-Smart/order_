@@ -39,13 +39,13 @@
         import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, orderBy, getDocs, setDoc, writeBatch, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
-  		apiKey: "AIzaSyAWzxJrQROhzSnVJCmTEUDfpYn-TJqHbHQ",
-  		authDomain: "order-4f8a2.firebaseapp.com",
-  		projectId: "order-4f8a2",
-  		storageBucket: "order-4f8a2.firebasestorage.app",
-  		messagingSenderId: "69210404028",
-  		appId: "1:69210404028:web:25fe58abbcbff4d1e9ccb9",
-  		measurementId: "G-JBK15C76HS"
+  apiKey: "AIzaSyAWzxJrQROhzSnVJCmTEUDfpYn-TJqHbHQ",
+  authDomain: "order-4f8a2.firebaseapp.com",
+  projectId: "order-4f8a2",
+  storageBucket: "order-4f8a2.firebasestorage.app",
+  messagingSenderId: "69210404028",
+  appId: "1:69210404028:web:25fe58abbcbff4d1e9ccb9",
+  measurementId: "G-JBK15C76HS"
 		};
         
         if (!firebaseConfig.projectId || firebaseConfig.projectId === "YOUR_PROJECT_ID") {
@@ -81,7 +81,7 @@
         const orderList = document.getElementById('order-list');
         const modalContainer = document.getElementById('modal-container');
 
-        const formatTimestamp = (ts) => ts ? new Date(ts.seconds * 1000).toLocaleString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
+        const formatTimestamp = (ts) => ts ? new Date(ts.seconds * 1000).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit' }) : '';
 
         function renderDashboard() {
             const isTotalView = viewingDay === 'all';
