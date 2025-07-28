@@ -24,20 +24,11 @@
         </header>
 
         <div id="day-tabs-container" class="mb-6 flex items-center justify-center flex-wrap gap-3">
-            <template id="day-tab-template">
-                <div class="relative group">
-                    <button class="tab-btn pl-4 pr-10 py-2 rounded-md font-semibold text-sm bg-white shadow w-full text-left"></button>
-                    <button class="edit-date-btn absolute top-1/2 right-2 -translate-y-1/2 text-gray-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
-                    </button>
-                </div>
-            </template>
-            <button id="add-day-btn" class="px-3 py-2 bg-green-500 text-white rounded-md font-bold text-sm hover:bg-green-600 shadow">+</button>
+            <!-- 일자 탭이 여기에 동적으로 생성됩니다. -->
         </div>
 
         <section id="summary-section" class="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6"></section>
         <main id="order-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></main>
-        <template id="order-card-template"></template> <!-- JS에서 동적 생성 -->
     </div>
 
     <!-- Modals -->
@@ -48,9 +39,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, collection, query, onSnapshot, doc, updateDoc, deleteDoc, orderBy, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- 중요 ---
-        // 아래 firebaseConfig 객체를 본인의 Firebase 프로젝트 설정 값으로 교체해야 합니다.
-        // Firebase 콘솔 -> 프로젝트 설정 -> 일반 탭에서 'SDK 설정 및 구성' 아래의 '구성'을 선택하면 찾을 수 있습니다.
         const firebaseConfig = {
   		apiKey: "AIzaSyAWzxJrQROhzSnVJCmTEUDfpYn-TJqHbHQ",
   		authDomain: "order-4f8a2.firebaseapp.com",
@@ -60,6 +48,7 @@
   		appId: "1:69210404028:web:25fe58abbcbff4d1e9ccb9",
   		measurementId: "G-JBK15C76HS"
 		};
+
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
@@ -115,12 +104,12 @@
             </div>`;
         }
 
+        // FIX: 탭 렌더링 방식을 innerHTML += 에서 map().join()으로 변경하여 안정성 향상
         function renderTabs() {
-            dayTabsContainer.innerHTML = '';
-            config.dayTabs.sort((a, b) => a.day - b.day).forEach(dayInfo => {
+            const tabsHTML = config.dayTabs.sort((a, b) => a.day - b.day).map(dayInfo => {
                 const dayDate = dayInfo.date ? new Date(dayInfo.date) : null;
                 const dateString = dayDate ? `(${dayDate.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })})` : '(날짜 미설정)';
-                const tabHTML = `
+                return `
                 <div class="relative group">
                     <button data-day="${dayInfo.day}" class="tab-btn pl-4 pr-10 py-2 rounded-md font-semibold text-sm bg-white shadow w-full text-left ${dayInfo.day === viewingDay ? 'view-active' : ''} ${dayInfo.day === config.activeDay ? 'collection-active' : ''}">
                         ${dayInfo.day}일차 <span class="text-xs font-normal">${dateString}</span>
@@ -130,9 +119,9 @@
                     </button>
                     ${dayInfo.day === config.activeDay ? '<span class="absolute -top-2 -right-2 text-xs bg-emerald-500 text-white px-1.5 py-0.5 rounded-full animate-pulse">ON</span>' : ''}
                 </div>`;
-                dayTabsContainer.innerHTML += tabHTML;
-            });
-            dayTabsContainer.innerHTML += `<button id="add-day-btn" class="px-3 py-2 bg-green-500 text-white rounded-md font-bold text-sm hover:bg-green-600 shadow">+</button>`;
+            }).join('');
+
+            dayTabsContainer.innerHTML = tabsHTML + `<button id="add-day-btn" class="px-3 py-2 bg-green-500 text-white rounded-md font-bold text-sm hover:bg-green-600 shadow">+</button>`;
             
             dayTabsContainer.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
@@ -212,4 +201,8 @@
 </html>
 ```
 
-코드를 일부 수정했습니다. Firebase 설정(`firebaseConfig`) 부분이 누락되어 있어, 어떤 값을 넣어야 하는지 명확히 알 수 있도록 주석과 함께 전체 구조를 추가했습니다. Firebase 콘솔에서 복사한 본인의 설정값을 여기에 붙여넣으면 오류가 해결됩
+### 수정된 내용
+
+* **탭 렌더링 방식 개선**: `renderTabs` 함수에서 각 탭을 하나씩 추가하는 대신, 모든 탭의 HTML 코드를 한 번에 만들어 화면에 그리도록 변경했습니다. 이 방법은 웹 브라우저가 마우스 호버(hover) 같은 효과를 더 안정적으로 처리하게 해줍니다.
+
+이제 관리자 페이지에서 각 일차 탭에 마우스를 올리면 수정 아이콘(✏️)이 정상적으로 나타날 것입
