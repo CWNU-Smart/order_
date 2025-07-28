@@ -11,7 +11,7 @@
         .status-btn-group button {
             transition: all 0.2s ease-in-out;
         }
-        .summary-card {
+        .summary-card, .order-card {
             animation: fadeIn 0.5s ease-in-out;
         }
         @keyframes fadeIn {
@@ -48,7 +48,13 @@
         <main id="order-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             <!-- 주문 카드 템플릿 -->
             <template id="order-card-template">
-                <div class="bg-white rounded-xl shadow-lg p-5 flex flex-col transition-opacity duration-500">
+                <div class="bg-white rounded-xl shadow-lg p-5 flex flex-col transition-opacity duration-500 relative order-card">
+                    <!-- 삭제 버튼 -->
+                    <button class="delete-order-btn absolute top-3 right-3 text-gray-400 hover:text-red-600 transition-transform transform hover:scale-110">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </button>
                     <div class="flex justify-between items-start mb-3">
                         <h2 class="text-2xl font-bold text-indigo-600">테이블 <span class="table-number"></span></h2>
                         <span class="order-time text-sm text-gray-500"></span>
@@ -71,9 +77,21 @@
         </main>
     </div>
 
+    <!-- 삭제 확인 모달 -->
+    <div id="delete-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-xl shadow-2xl text-center w-11/12 max-w-sm">
+            <h2 class="text-xl font-bold text-red-600 mb-4">정말로 삭제하시겠습니까?</h2>
+            <p class="text-gray-700 mb-6">이 주문 내역은 영구적으로 삭제되며, 복구할 수 없습니다.</p>
+            <div class="flex justify-center space-x-4">
+                <button id="cancel-delete" class="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 font-semibold">취소</button>
+                <button id="confirm-delete" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">삭제</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, query, onSnapshot, doc, updateDoc, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, query, onSnapshot, doc, updateDoc, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 중요 ---
         // 고객용 페이지와 동일한 Firebase 프로젝트 설정 값을 사용해야 합니다.
@@ -94,6 +112,12 @@
         const orderCardTemplate = document.getElementById('order-card-template');
         const totalRevenueEl = document.getElementById('total-revenue');
         const menuSalesEl = document.getElementById('menu-sales');
+        
+        // 삭제 모달 관련 요소
+        const deleteModal = document.getElementById('delete-modal');
+        const cancelDeleteBtn = document.getElementById('cancel-delete');
+        const confirmDeleteBtn = document.getElementById('confirm-delete');
+        let orderIdToDelete = null;
 
         const statusStyles = {
             "주문 접수 중": { button: "bg-yellow-100 text-yellow-800", cardBorder: "border-4 border-yellow-400" },
@@ -101,6 +125,32 @@
             "서빙 완료": { button: "bg-green-100 text-green-800", cardBorder: "border-4 border-green-400" },
             "처리 완료": { button: "bg-gray-200 text-gray-500", cardBorder: "" }
         };
+
+        // 삭제 모달 보이기/숨기기 함수
+        function showDeleteModal(orderId) {
+            orderIdToDelete = orderId;
+            deleteModal.classList.remove('hidden');
+        }
+
+        function hideDeleteModal() {
+            orderIdToDelete = null;
+            deleteModal.classList.add('hidden');
+        }
+
+        // 삭제 취소 및 확인 이벤트 리스너
+        cancelDeleteBtn.addEventListener('click', hideDeleteModal);
+        confirmDeleteBtn.addEventListener('click', async () => {
+            if (orderIdToDelete) {
+                try {
+                    await deleteDoc(doc(db, "orders", orderIdToDelete));
+                    hideDeleteModal();
+                } catch (error) {
+                    console.error("삭제 중 오류 발생:", error);
+                    alert("주문 삭제에 실패했습니다.");
+                    hideDeleteModal();
+                }
+            }
+        });
 
         // 실시간으로 주문 데이터 가져오기
         const q = query(collection(db, "orders"), orderBy("timestamp", "desc"));
@@ -113,7 +163,7 @@
                 const orderData = { id: doc.id, ...doc.data() };
                 allOrders.push(orderData);
 
-                // 통계 계산
+                // 통계 계산 (삭제된 주문은 포함하지 않도록, 하지만 여기선 모든 주문을 일단 다 가져옴)
                 totalRevenue += orderData.totalPrice;
                 orderData.items.forEach(item => {
                     menuSales[item.name] = (menuSales[item.name] || 0) + item.quantity;
@@ -135,12 +185,15 @@
                 menuSalesEl.innerHTML = '<p class="text-gray-500">아직 주문이 없습니다.</p>';
             }
 
-            // 주문 상태에 따라 정렬 (진행중인 주문이 위로)
+            // 주문 상태에 따라 정렬
             const statusPriority = { "주문 접수 중": 1, "요리 중": 2, "서빙 완료": 3, "처리 완료": 4 };
             allOrders.sort((a, b) => {
                 const priorityA = statusPriority[a.status] || 99;
                 const priorityB = statusPriority[b.status] || 99;
-                return priorityA - priorityB;
+                if (priorityA !== priorityB) {
+                    return priorityA - priorityB;
+                }
+                return b.timestamp - a.timestamp; // 같은 상태면 최신 순
             });
 
             // 주문 목록 UI 업데이트
@@ -149,6 +202,13 @@
                 const card = orderCardTemplate.content.cloneNode(true);
                 const cardDiv = card.querySelector('.bg-white');
                 
+                // 삭제 버튼 이벤트 연결
+                const deleteBtn = card.querySelector('.delete-order-btn');
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showDeleteModal(order.id);
+                });
+
                 card.querySelector('.table-number').textContent = order.tableNumber;
                 card.querySelector('.order-time').textContent = order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleTimeString('ko-KR') : '';
                 card.querySelector('.total-price').textContent = `${order.totalPrice.toLocaleString()}원`;
@@ -162,7 +222,6 @@
                     itemsContainer.appendChild(p);
                 });
 
-                // 상태 버튼 설정
                 const statusButtons = card.querySelectorAll('.status-btn-group button');
                 statusButtons.forEach(btn => {
                     const status = btn.dataset.status;
@@ -172,12 +231,10 @@
                         btn.className += ' bg-gray-200 hover:bg-gray-300';
                     }
                     btn.addEventListener('click', () => {
-                        const orderRef = doc(db, "orders", order.id);
-                        updateDoc(orderRef, { status: status });
+                        updateDoc(doc(db, "orders", order.id), { status: status });
                     });
                 });
 
-                // 카드 스타일 설정 (테두리, 투명도)
                 const currentStyle = statusStyles[order.status];
                 if (currentStyle && currentStyle.cardBorder) {
                     cardDiv.classList.add(...currentStyle.cardBorder.split(' '));
@@ -194,10 +251,10 @@
 </html>
 ```
 
-바뀐 점은 다음과 같습니다.
+**주요 변경사항:**
 
-1.  **통계 섹션 추가**: 페이지 상단에 '총 매출'과 '메뉴별 판매 수량'을 보여주는 카드를 추가했습니다. 이 정보는 주문이 들어올 때마다 실시간으로 자동 업데이트됩니다.
-2.  **'처리 완료' 내역 유지**: 이제 '처리 완료' 버튼을 눌러도 주문 카드가 사라지지 않습니다. 대신 약간 투명하게 처리되어 진행 중인 주문과 쉽게 구분할 수 있습니다.
-3.  **주문 자동 정렬**: '주문 접수 중' -> '요리 중' -> '서빙 완료' -> '처리 완료' 순서로 카드가 자동으로 정렬되어, 급한 주문을 먼저 처리하기 편하도록 개선했습니다.
+1.  **삭제(X) 버튼 추가**: 각 주문 카드 우측 상단에 X 모양의 삭제 버튼을 추가했습니다.
+2.  **삭제 확인 창(모달) 추가**: 삭제 버튼을 누르면 "정말로 삭제하시겠습니까?"라는 확인 창이 나타나, 실수로 주문을 삭제하는 것을 방지합니다.
+3.  **삭제 로직 구현**: 확인 창에서 '삭제' 버튼을 누르면 해당 주문 정보가 데이터베이스에서 영구적으로 삭제되고, 관리자 페이지에서도 즉시 사라집니다. '총 매출'과 '메뉴별 판매 수량' 통계도 자동으로 다시 계산됩니다.
 
-이 새로운 관리자 페이지로 축제 부스 운영을 더욱 체계적으로 관리하실 수 있을 거예요. 성공적인 축제를 기원합
+이제 훨씬 더 안정적으로 주문 시스템을 운영하실 수 있을 겁
