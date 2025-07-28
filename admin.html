@@ -51,7 +51,20 @@
 		};
         
         if (!firebaseConfig.projectId || firebaseConfig.projectId === "YOUR_PROJECT_ID") {
-            document.body.innerHTML = `<div class="p-8 text-center text-red-500"><h1 class="text-2xl font-bold">Firebase 설정 오류</h1><p>Firebase 설정이 필요합니다. 코드의 firebaseConfig 변수를 본인의 프로젝트 값으로 교체해주세요.</p></div>`;
+            document.body.innerHTML = `
+            <div class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+                <div class="p-8 text-center bg-white border-4 border-dashed border-red-300 rounded-lg shadow-lg max-w-2xl">
+                    <h1 class="text-3xl font-bold mb-4 text-red-600">Firebase 설정 오류</h1>
+                    <p class="mb-4 text-gray-700">이 앱을 사용하려면 Firebase 설정이 필요합니다.</p>
+                    <p class="mb-6 text-gray-700">아래 단계에 따라 코드의 <code class="bg-red-100 text-red-800 p-1 rounded font-mono">firebaseConfig</code> 변수를 본인의 프로젝트 값으로 교체해주세요.</p>
+                    <ol class="text-left mx-auto space-y-3 text-gray-600 list-decimal list-inside">
+                        <li><a href="https://console.firebase.google.com/" target="_blank" class="text-blue-600 underline font-semibold">Firebase 콘솔</a>에 접속하여 프로젝트를 선택하세요.</li>
+                        <li>프로젝트 설정(<svg xmlns="http://www.w3.org/2000/svg" class="inline-block h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.532 1.532 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.532 1.532 0 01-.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" /></svg> 아이콘) &gt; <span class="font-semibold">일반</span> 탭으로 이동하세요.</li>
+                        <li>'내 앱' 섹션에서 'SDK 설정 및 구성' 아래의 <span class="font-semibold">'구성'</span>을 선택하세요.</li>
+                        <li>보이는 <code class="bg-gray-200 p-1 rounded font-mono">const firebaseConfig = { ... };</code> 코드를 복사하여 이 파일의 코드에 붙여넣으세요.</li>
+                    </ol>
+                </div>
+            </div>`;
             throw new Error("Firebase configuration is missing.");
         }
         
@@ -210,30 +223,58 @@
             passwordModalEl.classList.remove('hidden');
         };
         window.hidePasswordModal = () => passwordModalEl.classList.add('hidden');
-        window.confirmDeleteDay = async (day) => {
+        window.confirmDeleteDay = async (dayToDelete) => {
             const password = document.getElementById('password-input').value;
             if (password !== DELETE_PASSWORD) {
                 alert('비밀번호가 틀렸습니다.');
                 return;
             }
-            if (!confirm(`정말로 ${day}일차의 모든 데이터를 영구적으로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return;
+            if (!confirm(`정말로 ${dayToDelete}일차의 모든 데이터를 영구적으로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return;
 
             try {
-                const ordersQuery = query(collection(db, "orders"), where("festivalDay", "==", day));
-                const ordersSnapshot = await getDocs(ordersQuery);
                 const batch = writeBatch(db);
-                ordersSnapshot.forEach(doc => batch.delete(doc.ref));
-                await batch.commit();
+                
+                const ordersToDeleteQuery = query(collection(db, "orders"), where("festivalDay", "==", dayToDelete));
+                const ordersToDeleteSnapshot = await getDocs(ordersToDeleteQuery);
+                ordersToDeleteSnapshot.forEach(doc => batch.delete(doc.ref));
 
-                const updatedDayTabs = config.dayTabs.filter(d => d.day !== day);
+                const remainingTabsSorted = config.dayTabs
+                    .filter(d => d.day !== dayToDelete)
+                    .sort((a, b) => a.day - b.day);
+
+                const renumberMap = new Map();
+                const renumberedTabs = remainingTabsSorted.map((tab, index) => {
+                    const newDay = index + 1;
+                    if (tab.day !== newDay) {
+                        renumberMap.set(tab.day, newDay);
+                    }
+                    return { ...tab, day: newDay };
+                });
+
+                for (const [oldDay, newDay] of renumberMap.entries()) {
+                    const ordersToUpdateQuery = query(collection(db, "orders"), where("festivalDay", "==", oldDay));
+                    const ordersToUpdateSnapshot = await getDocs(ordersToUpdateQuery);
+                    ordersToUpdateSnapshot.forEach(doc => {
+                        batch.update(doc.ref, { festivalDay: newDay });
+                    });
+                }
+
                 let newActiveDay = config.activeDay;
-                if (config.activeDay === day) {
-                    newActiveDay = updatedDayTabs.length > 0 ? Math.max(...updatedDayTabs.map(d => d.day)) : null;
+                if (config.activeDay === dayToDelete) {
+                    newActiveDay = renumberedTabs.length > 0 ? Math.max(...renumberedTabs.map(d => d.day)) : null;
+                } else if (renumberMap.has(config.activeDay)) {
+                    newActiveDay = renumberMap.get(config.activeDay);
+                }
+
+                if (viewingDay === dayToDelete || renumberMap.has(viewingDay)) {
+                     viewingDay = newActiveDay;
                 }
                 
-                await setDoc(configRef, { dayTabs: updatedDayTabs, activeDay: newActiveDay });
+                batch.set(configRef, { dayTabs: renumberedTabs, activeDay: newActiveDay });
+                
+                await batch.commit();
                 hidePasswordModal();
-                alert(`${day}일차 데이터가 성공적으로 삭제되었습니다.`);
+                alert(`${dayToDelete}일차 데이터가 성공적으로 삭제되었습니다.`);
 
             } catch (error) {
                 console.error("일차 삭제 중 오류 발생:", error);
@@ -252,6 +293,13 @@
         onSnapshot(configRef, async (docSnap) => {
             if (docSnap.exists()) {
                 const newConfig = { dayTabs: [], activeDay: 1, ...docSnap.data() };
+                const validTabs = newConfig.dayTabs.filter(d => d && typeof d.day === 'number');
+                if(validTabs.length !== newConfig.dayTabs.length) {
+                    console.warn("Invalid tabs found and will be removed.");
+                    newConfig.dayTabs = validTabs;
+                    await setDoc(configRef, { dayTabs: validTabs }, { merge: true });
+                }
+                
                 config = newConfig;
                 if (viewingDay === null || !config.dayTabs.some(d => d.day === viewingDay)) {
                     viewingDay = config.activeDay || (config.dayTabs.length > 0 ? Math.max(...config.dayTabs.map(d => d.day)) : null);
