@@ -11,21 +11,44 @@
         .status-btn-group button {
             transition: all 0.2s ease-in-out;
         }
+        .summary-card {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
-<body class="bg-gray-200">
+<body class="bg-gray-100">
 
     <div class="container mx-auto p-4 sm:p-6 lg:p-8">
         <header class="text-center my-6">
             <h1 class="text-4xl font-bold text-gray-800">주문 관리 대시보드</h1>
-            <p class="text-gray-600 mt-2">새로운 주문이 실시간으로 업데이트됩니다.</p>
+            <p class="text-gray-600 mt-2">새로운 주문과 통계가 실시간으로 업데이트됩니다.</p>
         </header>
+
+        <!-- 통계 섹션 -->
+        <section id="summary-section" class="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- 총 매출 -->
+            <div class="bg-white p-6 rounded-xl shadow-lg summary-card">
+                <h2 class="text-xl font-bold text-gray-700 mb-2">총 매출</h2>
+                <p id="total-revenue" class="text-4xl font-extrabold text-indigo-600">0원</p>
+            </div>
+            <!-- 메뉴별 판매량 -->
+            <div class="bg-white p-6 rounded-xl shadow-lg summary-card">
+                <h2 class="text-xl font-bold text-gray-700 mb-2">메뉴별 판매 수량</h2>
+                <div id="menu-sales" class="space-y-2 text-gray-800">
+                    <p class="text-gray-500">아직 주문이 없습니다.</p>
+                </div>
+            </div>
+        </section>
 
         <!-- 주문 목록 -->
         <main id="order-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             <!-- 주문 카드 템플릿 -->
             <template id="order-card-template">
-                <div class="bg-white rounded-xl shadow-lg p-5 flex flex-col">
+                <div class="bg-white rounded-xl shadow-lg p-5 flex flex-col transition-opacity duration-500">
                     <div class="flex justify-between items-start mb-3">
                         <h2 class="text-2xl font-bold text-indigo-600">테이블 <span class="table-number"></span></h2>
                         <span class="order-time text-sm text-gray-500"></span>
@@ -41,7 +64,7 @@
                         <button data-status="주문 접수 중" class="p-2 rounded-md font-semibold">접수 중</button>
                         <button data-status="요리 중" class="p-2 rounded-md font-semibold">요리 중</button>
                         <button data-status="서빙 완료" class="p-2 rounded-md font-semibold">서빙 완료</button>
-                        <button data-status="처리 완료" class="p-2 rounded-md font-semibold text-red-700 bg-red-100 hover:bg-red-200">처리 완료</button>
+                        <button data-status="처리 완료" class="p-2 rounded-md font-semibold">처리 완료</button>
                     </div>
                 </div>
             </template>
@@ -55,13 +78,13 @@
         // --- 중요 ---
         // 고객용 페이지와 동일한 Firebase 프로젝트 설정 값을 사용해야 합니다.
         const firebaseConfig = {
- 		 apiKey: "AIzaSyAWzxJrQROhzSnVJCmTEUDfpYn-TJqHbHQ",
-  		 authDomain: "order-4f8a2.firebaseapp.com",
- 		 projectId: "order-4f8a2",
- 		 storageBucket: "order-4f8a2.firebasestorage.app",
- 		 messagingSenderId: "69210404028",
- 		 appId: "1:69210404028:web:25fe58abbcbff4d1e9ccb9",
- 		 measurementId: "G-JBK15C76HS"
+  		apiKey: "AIzaSyAWzxJrQROhzSnVJCmTEUDfpYn-TJqHbHQ",
+  		authDomain: "order-4f8a2.firebaseapp.com",
+  		projectId: "order-4f8a2",
+  		storageBucket: "order-4f8a2.firebasestorage.app",
+  		messagingSenderId: "69210404028",
+  		appId: "1:69210404028:web:25fe58abbcbff4d1e9ccb9",
+  		measurementId: "G-JBK15C76HS"
 		};
         
         const app = initializeApp(firebaseConfig);
@@ -69,32 +92,69 @@
 
         const orderList = document.getElementById('order-list');
         const orderCardTemplate = document.getElementById('order-card-template');
+        const totalRevenueEl = document.getElementById('total-revenue');
+        const menuSalesEl = document.getElementById('menu-sales');
 
-        const statusColors = {
-            "주문 접수 중": "bg-yellow-100 text-yellow-800",
-            "요리 중": "bg-blue-100 text-blue-800",
-            "서빙 완료": "bg-green-100 text-green-800",
-            "처리 완료": "bg-gray-100 text-gray-500 line-through",
+        const statusStyles = {
+            "주문 접수 중": { button: "bg-yellow-100 text-yellow-800", cardBorder: "border-4 border-yellow-400" },
+            "요리 중": { button: "bg-blue-100 text-blue-800", cardBorder: "border-4 border-blue-400" },
+            "서빙 완료": { button: "bg-green-100 text-green-800", cardBorder: "border-4 border-green-400" },
+            "처리 완료": { button: "bg-gray-200 text-gray-500", cardBorder: "" }
         };
 
         // 실시간으로 주문 데이터 가져오기
         const q = query(collection(db, "orders"), orderBy("timestamp", "desc"));
         onSnapshot(q, (querySnapshot) => {
-            orderList.innerHTML = ''; // 목록 초기화
-            querySnapshot.forEach((docSnapshot) => { // doc -> docSnapshot으로 변경하여 혼동 방지
-                const order = docSnapshot.data();
-                const orderId = docSnapshot.id;
-                
-                // '처리 완료' 상태가 아닌 주문만 표시
-                if (order.status === '처리 완료') return;
+            let totalRevenue = 0;
+            const menuSales = {};
+            const allOrders = [];
 
+            querySnapshot.forEach((doc) => {
+                const orderData = { id: doc.id, ...doc.data() };
+                allOrders.push(orderData);
+
+                // 통계 계산
+                totalRevenue += orderData.totalPrice;
+                orderData.items.forEach(item => {
+                    menuSales[item.name] = (menuSales[item.name] || 0) + item.quantity;
+                });
+            });
+            
+            // 통계 UI 업데이트
+            totalRevenueEl.textContent = `${totalRevenue.toLocaleString()}원`;
+            menuSalesEl.innerHTML = '';
+            if (Object.keys(menuSales).length > 0) {
+                const sortedMenu = Object.entries(menuSales).sort(([,a],[,b]) => b-a);
+                sortedMenu.forEach(([name, quantity]) => {
+                    const p = document.createElement('p');
+                    p.className = 'flex justify-between font-medium';
+                    p.innerHTML = `<span>${name}</span><span>${quantity}개</span>`;
+                    menuSalesEl.appendChild(p);
+                });
+            } else {
+                menuSalesEl.innerHTML = '<p class="text-gray-500">아직 주문이 없습니다.</p>';
+            }
+
+            // 주문 상태에 따라 정렬 (진행중인 주문이 위로)
+            const statusPriority = { "주문 접수 중": 1, "요리 중": 2, "서빙 완료": 3, "처리 완료": 4 };
+            allOrders.sort((a, b) => {
+                const priorityA = statusPriority[a.status] || 99;
+                const priorityB = statusPriority[b.status] || 99;
+                return priorityA - priorityB;
+            });
+
+            // 주문 목록 UI 업데이트
+            orderList.innerHTML = ''; 
+            allOrders.forEach(order => {
                 const card = orderCardTemplate.content.cloneNode(true);
+                const cardDiv = card.querySelector('.bg-white');
                 
                 card.querySelector('.table-number').textContent = order.tableNumber;
-                card.querySelector('.order-time').textContent = order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleTimeString() : '';
+                card.querySelector('.order-time').textContent = order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleTimeString('ko-KR') : '';
                 card.querySelector('.total-price').textContent = `${order.totalPrice.toLocaleString()}원`;
                 
                 const itemsContainer = card.querySelector('.order-items');
+                itemsContainer.innerHTML = '';
                 order.items.forEach(item => {
                     const p = document.createElement('p');
                     p.className = 'flex justify-between';
@@ -102,36 +162,29 @@
                     itemsContainer.appendChild(p);
                 });
 
+                // 상태 버튼 설정
                 const statusButtons = card.querySelectorAll('.status-btn-group button');
                 statusButtons.forEach(btn => {
                     const status = btn.dataset.status;
-                    // 현재 상태에 따라 버튼 스타일링
                     if (status === order.status) {
-                        btn.className += ` ${statusColors[status]}`;
+                        btn.className += ` ${statusStyles[status].button}`;
                     } else {
                         btn.className += ' bg-gray-200 hover:bg-gray-300';
                     }
-                    
-                    // 버튼 클릭 시 상태 업데이트
                     btn.addEventListener('click', () => {
-                        // FIX: Firestore 문서 참조 구문 오류 수정
-                        const orderRef = doc(db, "orders", orderId);
-                        updateDoc(orderRef, {
-                            status: status
-                        });
+                        const orderRef = doc(db, "orders", order.id);
+                        updateDoc(orderRef, { status: status });
                     });
                 });
 
-                // 카드 전체에 현재 상태에 따른 배경색 적용
-                const cardDiv = card.querySelector('.bg-white');
-                if (order.status === "주문 접수 중") {
-                    cardDiv.classList.add('border-4', 'border-yellow-400');
-                } else if (order.status === "요리 중") {
-                    cardDiv.classList.add('border-4', 'border-blue-400');
-                } else if (order.status === "서빙 완료") {
-                    cardDiv.classList.add('border-4', 'border-green-400');
+                // 카드 스타일 설정 (테두리, 투명도)
+                const currentStyle = statusStyles[order.status];
+                if (currentStyle && currentStyle.cardBorder) {
+                    cardDiv.classList.add(...currentStyle.cardBorder.split(' '));
                 }
-
+                if (order.status === '처리 완료') {
+                    cardDiv.classList.add('opacity-50');
+                }
 
                 orderList.appendChild(card);
             });
@@ -141,8 +194,10 @@
 </html>
 ```
 
-제가 수정한 내용은 다음과 같습니다.
+바뀐 점은 다음과 같습니다.
 
-* `btn.addEventListener` 내부의 `const orderRef = doc.db, "orders", orderId);` 라인을 올바른 Firestore 함수 호출 방식인 `const orderRef = doc(db, "orders", orderId);`로 변경했습니다.
+1.  **통계 섹션 추가**: 페이지 상단에 '총 매출'과 '메뉴별 판매 수량'을 보여주는 카드를 추가했습니다. 이 정보는 주문이 들어올 때마다 실시간으로 자동 업데이트됩니다.
+2.  **'처리 완료' 내역 유지**: 이제 '처리 완료' 버튼을 눌러도 주문 카드가 사라지지 않습니다. 대신 약간 투명하게 처리되어 진행 중인 주문과 쉽게 구분할 수 있습니다.
+3.  **주문 자동 정렬**: '주문 접수 중' -> '요리 중' -> '서빙 완료' -> '처리 완료' 순서로 카드가 자동으로 정렬되어, 급한 주문을 먼저 처리하기 편하도록 개선했습니다.
 
-이제 코드가 정상적으로 실행될 것입니다. 추가적인 문제가 발생하면 언제든지 다시 알려주
+이 새로운 관리자 페이지로 축제 부스 운영을 더욱 체계적으로 관리하실 수 있을 거예요. 성공적인 축제를 기원합
