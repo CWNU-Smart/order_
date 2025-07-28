@@ -8,9 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        .fade-in {
-            animation: fadeIn 0.5s ease-in-out;
-        }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -25,9 +23,15 @@
             <p class="text-gray-600 mt-2">QR코드로 간편하게 주문하세요!</p>
         </header>
 
-        <div id="table-section" class="bg-white p-6 rounded-xl shadow-md mb-6 fade-in">
-            <label for="table-number" class="block text-lg font-semibold text-gray-800 mb-2">테이블 번호를 입력해주세요</label>
-            <input type="number" id="table-number" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="예: 5">
+        <div class="bg-white p-6 rounded-xl shadow-md mb-6 fade-in space-y-4">
+            <div>
+                <label for="table-number" class="block text-lg font-semibold text-gray-800 mb-2">테이블 번호</label>
+                <input type="number" id="table-number" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="테이블 번호를 입력하세요">
+            </div>
+            <div>
+                <label for="order-number" class="block text-lg font-semibold text-gray-800 mb-2">주문번호</label>
+                <input type="text" id="order-number" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="직원에게 받은 주문번호를 입력하세요">
+            </div>
         </div>
 
         <div id="menu-section" class="space-y-4 fade-in" style="animation-delay: 0.1s;">
@@ -39,9 +43,9 @@
                         <p class="text-gray-600 font-medium"></p>
                     </div>
                     <div class="flex items-center space-x-3">
-                        <button class="quantity-change bg-gray-200 text-gray-800 rounded-full w-8 h-8 text-lg font-bold hover:bg-gray-300 transition">-</button>
+                        <button class="quantity-change bg-gray-200 text-gray-800 rounded-full w-8 h-8 text-lg font-bold hover:bg-gray-300">-</button>
                         <span class="quantity text-lg font-semibold w-8 text-center">0</span>
-                        <button class="quantity-change bg-indigo-500 text-white rounded-full w-8 h-8 text-lg font-bold hover:bg-indigo-600 transition">+</button>
+                        <button class="quantity-change bg-indigo-500 text-white rounded-full w-8 h-8 text-lg font-bold hover:bg-indigo-600">+</button>
                     </div>
                 </div>
             </template>
@@ -49,16 +53,12 @@
 
         <div id="order-summary" class="mt-8 bg-white p-6 rounded-xl shadow-lg sticky bottom-4 fade-in" style="animation-delay: 0.2s;">
             <h3 class="text-xl font-bold text-gray-800 mb-4">주문 내역</h3>
-            <div id="cart-items" class="space-y-2 mb-4">
-                <p class="text-gray-500">카트가 비어있습니다.</p>
-            </div>
+            <div id="cart-items" class="space-y-2 mb-4"><p class="text-gray-500">카트가 비어있습니다.</p></div>
             <div class="border-t pt-4 flex justify-between items-center">
                 <span class="text-xl font-bold text-gray-900">총 금액:</span>
                 <span id="total-price" class="text-2xl font-bold text-indigo-600">0원</span>
             </div>
-            <button id="submit-order" class="w-full bg-indigo-600 text-white font-bold py-4 rounded-lg mt-4 hover:bg-indigo-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
-                주문하기
-            </button>
+            <button id="submit-order" class="w-full bg-indigo-600 text-white font-bold py-4 rounded-lg mt-4 hover:bg-indigo-700 disabled:bg-gray-400">주문하기</button>
         </div>
     </div>
 
@@ -73,10 +73,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, collection, addDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- 중요 ---
-        // 아래 firebaseConfig 객체를 본인의 Firebase 프로젝트 설정 값으로 교체해야 합니다.
-        // Firebase 콘솔 -> 프로젝트 설정 -> 일반 탭에서 'SDK 설정 및 구성' 아래의 '구성'을 선택하면 찾을 수 있습니다.
-        const firebaseConfig = {
+       const firebaseConfig = {
   		apiKey: "AIzaSyAWzxJrQROhzSnVJCmTEUDfpYn-TJqHbHQ",
   		authDomain: "order-4f8a2.firebaseapp.com",
   		projectId: "order-4f8a2",
@@ -86,12 +83,6 @@
   		measurementId: "G-JBK15C76HS"
 		};
 
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-
-        let activeFestivalDay = null;
-        let activeDateString = null;
         const submitOrderBtn = document.getElementById('submit-order');
 
         function showAlert(title, message, duration = 2000) {
@@ -99,141 +90,137 @@
             document.getElementById('alert-message').textContent = message;
             const modal = document.getElementById('alert-modal');
             modal.classList.remove('hidden');
-            if(duration > 0) {
-                setTimeout(() => modal.classList.add('hidden'), duration);
-            }
+            if(duration > 0) setTimeout(() => modal.classList.add('hidden'), duration);
         }
 
-        async function fetchConfig() {
-            const configRef = doc(db, "festivalConfig", "settings");
-            try {
-                const docSnap = await getDoc(configRef);
-                if (docSnap.exists()) {
-                    const configData = docSnap.data();
-                    const activeDayNumber = configData.activeDay;
-                    const activeDayInfo = configData.dayTabs.find(d => d.day === activeDayNumber);
+        if (!firebaseConfig.projectId || firebaseConfig.projectId === "YOUR_PROJECT_ID") {
+            showAlert("설정 오류", "Firebase 설정이 필요합니다. 관리자에게 문의해주세요.", 0);
+            submitOrderBtn.disabled = true;
+        } else {
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
 
-                    if (activeDayInfo && activeDayInfo.date) {
-                        activeFestivalDay = activeDayInfo.day;
-                        activeDateString = activeDayInfo.date;
+            let configData = null;
+            
+            async function fetchConfig() {
+                const configRef = doc(db, "festivalConfig", "settings");
+                try {
+                    const docSnap = await getDoc(configRef);
+                    if (docSnap.exists()) {
+                        configData = docSnap.data();
                         submitOrderBtn.disabled = false;
                     } else {
-                        showAlert("주문 불가", "현재 주문을 받고 있지 않습니다. 관리자에게 문의해주세요.", 0);
+                        showAlert("시스템 오류", "주문 시스템 설정을 찾을 수 없습니다.", 0);
                         submitOrderBtn.disabled = true;
                     }
-                } else {
-                    showAlert("시스템 오류", "주문 시스템 설정을 찾을 수 없습니다. 관리자에게 문의해주세요.", 0);
+                } catch (error) {
+                    showAlert("네트워크 오류", "시스템 정보를 불러오는 데 실패했습니다.", 0);
                     submitOrderBtn.disabled = true;
                 }
-            } catch (error) {
-                console.error("설정 정보 로드 오류:", error);
-                showAlert("네트워크 오류", "시스템 설정 정보를 불러오는 데 실패했습니다.", 0);
-                submitOrderBtn.disabled = true;
             }
-        }
-        fetchConfig();
+            fetchConfig();
 
-        const menu = [
-            { id: 'tteokbokki', name: '마약 떡볶이', price: 5000 },
-            { id: 'sundae', name: '찰순대', price: 4500 },
-            { id: 'fries', name: '모듬튀김', price: 4000 },
-            { id: 'eomuk', name: '부산어묵 (3개)', price: 2000 },
-            { id: 'chicken-skewer', name: '매콤 닭꼬치', price: 3500 },
-        ];
+            const menu = [
+                { id: 'tteokbokki', name: '마약 떡볶이', price: 5000 },
+                { id: 'sundae', name: '찰순대', price: 4500 },
+                { id: 'fries', name: '모듬튀김', price: 4000 },
+                { id: 'eomuk', name: '부산어묵 (3개)', price: 2000 },
+                { id: 'chicken-skewer', name: '매콤 닭꼬치', price: 3500 },
+            ];
 
-        const menuSection = document.getElementById('menu-section');
-        const menuItemTemplate = document.getElementById('menu-item-template');
-        const cart = {};
+            const menuSection = document.getElementById('menu-section');
+            const menuItemTemplate = document.getElementById('menu-item-template');
+            const cart = {};
 
-        menu.forEach(item => {
-            const clone = menuItemTemplate.content.cloneNode(true);
-            clone.querySelector('h3').textContent = item.name;
-            clone.querySelector('p').textContent = `${item.price.toLocaleString()}원`;
-            const [minusBtn, plusBtn] = clone.querySelectorAll('.quantity-change');
-            const quantitySpan = clone.querySelector('.quantity');
-            minusBtn.addEventListener('click', () => updateQuantity(item, -1, quantitySpan));
-            plusBtn.addEventListener('click', () => updateQuantity(item, 1, quantitySpan));
-            menuSection.appendChild(clone);
-            cart[item.id] = { ...item, quantity: 0 };
-        });
+            menu.forEach(item => {
+                const clone = menuItemTemplate.content.cloneNode(true);
+                clone.querySelector('h3').textContent = item.name;
+                clone.querySelector('p').textContent = `${item.price.toLocaleString()}원`;
+                const [minusBtn, plusBtn] = clone.querySelectorAll('.quantity-change');
+                const quantitySpan = clone.querySelector('.quantity');
+                minusBtn.addEventListener('click', () => updateQuantity(item, -1, quantitySpan));
+                plusBtn.addEventListener('click', () => updateQuantity(item, 1, quantitySpan));
+                menuSection.appendChild(clone);
+                cart[item.id] = { ...item, quantity: 0 };
+            });
 
-        function updateQuantity(item, change, quantitySpan) {
-            const currentQuantity = cart[item.id].quantity;
-            if (currentQuantity + change >= 0) {
-                cart[item.id].quantity += change;
-                quantitySpan.textContent = cart[item.id].quantity;
-                updateCart();
+            function updateQuantity(item, change, quantitySpan) {
+                const currentQuantity = cart[item.id].quantity;
+                if (currentQuantity + change >= 0) {
+                    cart[item.id].quantity += change;
+                    quantitySpan.textContent = cart[item.id].quantity;
+                    updateCart();
+                }
             }
-        }
 
-        const cartItemsDiv = document.getElementById('cart-items');
-        const totalPriceSpan = document.getElementById('total-price');
+            const cartItemsDiv = document.getElementById('cart-items');
+            const totalPriceSpan = document.getElementById('total-price');
 
-        function updateCart() {
-            cartItemsDiv.innerHTML = '';
-            let total = 0;
-            let hasItems = false;
-            Object.values(cart).forEach(item => {
-                if (item.quantity > 0) {
-                    hasItems = true;
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'flex justify-between text-gray-800';
-                    itemDiv.innerHTML = `<span>${item.name} x${item.quantity}</span><span>${(item.price * item.quantity).toLocaleString()}원</span>`;
-                    cartItemsDiv.appendChild(itemDiv);
-                    total += item.price * item.quantity;
+            function updateCart() {
+                cartItemsDiv.innerHTML = '';
+                let total = 0;
+                let hasItems = false;
+                Object.values(cart).forEach(item => {
+                    if (item.quantity > 0) {
+                        hasItems = true;
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'flex justify-between text-gray-800';
+                        itemDiv.innerHTML = `<span>${item.name} x${item.quantity}</span><span>${(item.price * item.quantity).toLocaleString()}원</span>`;
+                        cartItemsDiv.appendChild(itemDiv);
+                        total += item.price * item.quantity;
+                    }
+                });
+                if (!hasItems) cartItemsDiv.innerHTML = '<p class="text-gray-500">카트가 비어있습니다.</p>';
+                totalPriceSpan.textContent = `${total.toLocaleString()}원`;
+            }
+
+            submitOrderBtn.addEventListener('click', async () => {
+                if (!configData) {
+                    showAlert("오류", "시스템이 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.");
+                    return;
+                }
+                const activeDayInfo = configData.dayTabs.find(d => d.day === configData.activeDay);
+                if (!activeDayInfo || !activeDayInfo.date) {
+                    showAlert("주문 불가", "현재 주문 접수 시간이 아닙니다.");
+                    return;
+                }
+
+                const tableNumber = document.getElementById('table-number').value;
+                const orderNumber = document.getElementById('order-number').value; // '주문번호'로 변경
+
+                if (!tableNumber || !orderNumber) {
+                    showAlert("입력 오류", "테이블 번호와 주문번호를 모두 입력해주세요.");
+                    return;
+                }
+                
+                const orderedItems = Object.values(cart).filter(item => item.quantity > 0);
+                if (orderedItems.length === 0) {
+                    showAlert("입력 오류", "메뉴를 선택해주세요.");
+                    return;
+                }
+
+                const totalPrice = orderedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const now = new Date();
+                const timeString = now.toTimeString().split(' ')[0];
+                const finalTimestamp = new Date(`${activeDayInfo.date}T${timeString}`);
+
+                try {
+                    await addDoc(collection(db, "orders"), {
+                        tableNumber: parseInt(tableNumber),
+                        orderNumber: orderNumber, // 주문번호 필드 추가
+                        items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price })),
+                        totalPrice: totalPrice,
+                        status: "주문 접수 중",
+                        timestamp: finalTimestamp,
+                        festivalDay: activeDayInfo.day
+                    });
+                    showAlert("주문 완료!", "주문이 성공적으로 접수되었습니다.", 2000);
+                    setTimeout(() => { window.location.reload(); }, 2100);
+                } catch (e) {
+                    showAlert("주문 실패", "주문 처리 중 오류가 발생했습니다.");
                 }
             });
-            if (!hasItems) {
-                cartItemsDiv.innerHTML = '<p class="text-gray-500">카트가 비어있습니다.</p>';
-            }
-            totalPriceSpan.textContent = `${total.toLocaleString()}원`;
         }
-
-        submitOrderBtn.addEventListener('click', async () => {
-            if (!activeFestivalDay || !activeDateString) {
-                showAlert("주문 불가", "현재 주문 접수 시간이 아닙니다. 관리자에게 문의해주세요.");
-                return;
-            }
-            const tableNumber = document.getElementById('table-number').value;
-            if (!tableNumber) {
-                showAlert("입력 오류", "테이블 번호를 입력해주세요!");
-                return;
-            }
-
-            const orderedItems = Object.values(cart).filter(item => item.quantity > 0);
-            if (orderedItems.length === 0) {
-                showAlert("입력 오류", "메뉴를 선택해주세요!");
-                return;
-            }
-
-            const totalPrice = orderedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            
-            // 관리자가 설정한 날짜 + 현재 시간으로 최종 시간을 조합
-            const now = new Date();
-            const timeString = now.toTimeString().split(' ')[0]; // "HH:mm:ss"
-            const finalTimestamp = new Date(`${activeDateString}T${timeString}`);
-
-            try {
-                await addDoc(collection(db, "orders"), {
-                    tableNumber: parseInt(tableNumber),
-                    items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price })),
-                    totalPrice: totalPrice,
-                    status: "주문 접수 중",
-                    timestamp: finalTimestamp, // 조합된 시간으로 저장
-                    festivalDay: activeFestivalDay
-                });
-
-                showAlert("주문 완료!", "주문이 성공적으로 접수되었습니다.", 2000);
-                setTimeout(() => { window.location.reload(); }, 2100);
-
-            } catch (e) {
-                console.error("주문 저장 오류: ", e);
-                showAlert("주문 실패", "주문 처리 중 오류가 발생했습니다. 다시 시도해주세요.");
-            }
-        });
     </script>
 </body>
 </html>
-```
-
-몇 가지 변경사항을 적용했습니다. `firebaseConfig` 변수 부분을 실제 설정값으로 쉽게 교체할 수 있도록 명확한 주석과 함께 전체 구조를 추가했습니다. Firebase 콘솔에서 복사한 본인의 설정값을 여기에 붙여넣으면 오류가 해결됩
