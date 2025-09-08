@@ -2,12 +2,13 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale-1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>주문 관리 대시보드</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- 엑셀 내보내기 라이브러리 추가 -->
+    <!-- 엑셀 & 사운드 라이브러리 추가 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         .tab-btn { transition: all 0.2s ease-in-out; }
@@ -22,16 +23,19 @@
             100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
         .highlight-update {
-            animation: pulse-green 2s 2;
+            animation: pulse-green 1.5s 2;
         }
     </style>
 </head>
 <body class="bg-gray-100">
 
     <div class="container mx-auto p-4 sm:p-6 lg:p-8">
-        <header class="text-center my-6">
+        <header class="text-center my-6 relative">
             <h1 class="text-4xl font-bold text-gray-800">주문 관리 대시보드</h1>
             <p class="text-gray-600 mt-2">일자를 선택해 주문을 관리하고, 새 일차를 시작하세요.</p>
+            <button id="sound-toggle-btn" class="absolute top-0 right-0 p-2 rounded-full hover:bg-gray-200 transition">
+                <!-- 아이콘은 스크립트에서 동적으로 설정 -->
+            </button>
         </header>
 
         <div id="day-tabs-container" class="mb-6 flex items-center justify-center flex-wrap gap-3">
@@ -85,12 +89,42 @@
         let allOrders = [];
         let config = { dayTabs: [], activeDay: null };
         let viewingDay = 'all';
+        let previousOrdersMap = new Map();
+        let isMuted = false;
+        
         const configRef = doc(db, "festivalConfig", "settings");
 
         const dayTabsContainer = document.getElementById('day-tabs-container');
         const summarySection = document.getElementById('summary-section');
         const orderList = document.getElementById('order-list');
         const modalContainer = document.getElementById('modal-container');
+        const soundToggleBtn = document.getElementById('sound-toggle-btn');
+
+        // --- 사운드 설정 ---
+        let newOrderSound, updateOrderSound;
+        function setupSounds() {
+            if (window.Tone) {
+                newOrderSound = new Tone.Synth().toDestination();
+                updateOrderSound = new Tone.Synth({ oscillator: { type: 'triangle' } }).toDestination();
+                console.log("사운드 준비 완료");
+            } else {
+                console.error("Tone.js 라이브러리를 찾을 수 없습니다.");
+            }
+        }
+        
+        const soundOnIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>`;
+        const soundOffIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l-2-2m0 0l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
+
+        function toggleSound() {
+            isMuted = !isMuted;
+            soundToggleBtn.innerHTML = isMuted ? soundOffIcon : soundOnIcon;
+            if (!isMuted && Tone.context.state !== 'running') {
+                Tone.start().then(setupSounds);
+            }
+        }
+        soundToggleBtn.innerHTML = soundOnIcon;
+        soundToggleBtn.addEventListener('click', toggleSound);
+
 
         const formatTimestamp = (ts, includeDate = false) => {
             if (!ts) return '';
@@ -137,17 +171,12 @@
             const statusStyles = { "주문 접수 중": "border-yellow-400", "요리 중": "border-blue-400", "서빙 완료": "border-green-400", "처리 완료": "" };
             const statusBtnStyles = { "주문 접수 중": "bg-yellow-100 text-yellow-800", "요리 중": "bg-blue-100 text-blue-800", "서빙 완료": "bg-green-100 text-green-800", "처리 완료": "bg-gray-200 text-gray-500" };
             
-            const nowInSeconds = Date.now() / 1000;
-            const orderTimeInSeconds = order.timestamp ? order.timestamp.seconds : 0;
-            const isRecentUpdate = order.lastAction === 'added_items' && (nowInSeconds - orderTimeInSeconds < 5);
-            const highlightClass = isRecentUpdate ? 'highlight-update' : '';
-
             return `
-            <div class="bg-white rounded-xl shadow-lg p-5 flex flex-col transition-opacity duration-500 relative order-card border-4 ${statusStyles[order.status] || ''} ${order.status === '처리 완료' ? 'opacity-50' : ''} ${highlightClass}">
+            <div data-order-id="${order.id}" class="bg-white rounded-xl shadow-lg p-5 flex flex-col transition-opacity duration-500 relative order-card border-4 ${statusStyles[order.status] || ''} ${order.status === '처리 완료' ? 'opacity-50' : ''}">
                 <div class="flex justify-between items-start mb-3">
                     <h2 class="text-2xl font-bold text-indigo-600 pr-4">테이블 <span class="table-number">${order.tableNumber}</span></h2>
                     <div class="text-right flex-shrink-0">
-                        <button data-action="showDeleteModal" data-id="${order.id}" class="text-gray-400 hover:text-red-600 z-10 block ml-auto w-6 h-6"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button>
+                        <button data-action="showDeleteModal" data-id="${order.id}" class="text-gray-400 hover:text-red-600 z-10 block ml-auto w-6 h-6"><svg class="pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button>
                         <span class="order-time text-xs text-gray-500 block mt-1">${formatTimestamp(order.timestamp, true)}</span>
                     </div>
                 </div>
@@ -163,7 +192,7 @@
             const tabsHTML = validTabs.sort((a, b) => a.day - b.day).map(dayInfo => {
                 return `
                 <div class="relative group">
-                    <button data-day="${dayInfo.day}" class="tab-btn px-4 py-2 rounded-md font-semibold text-sm bg-white shadow w-full text-left">
+                    <button data-day="${dayInfo.day}" class="tab-btn px-4 py-2 rounded-md font-semibold text-sm bg-white shadow w-full text-left ${dayInfo.day === viewingDay ? 'view-active' : ''}">
                         ${dayInfo.day}일차
                     </button>
                     <div class="absolute top-full pt-1 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-300">
@@ -179,7 +208,6 @@
                             </button>
                         </div>
                     </div>
-                    ${dayInfo.day === viewingDay ? '<div class="absolute -bottom-1 left-0 right-0 h-1 bg-indigo-600 rounded-full"></div>' : ''}
                     ${dayInfo.day === config.activeDay ? '<span class="absolute -top-2 -right-2 text-xs bg-emerald-500 text-white px-1.5 py-0.5 rounded-full animate-pulse">ON</span>' : ''}
                 </div>`;
             }).join('');
@@ -245,49 +273,33 @@
 
                 try {
                     const batch = writeBatch(db);
-                    
                     const ordersToDeleteQuery = query(collection(db, "orders"), where("festivalDay", "==", dayToDelete));
                     const ordersToDeleteSnapshot = await getDocs(ordersToDeleteQuery);
                     ordersToDeleteSnapshot.forEach(doc => batch.delete(doc.ref));
 
-                    const remainingTabsSorted = config.dayTabs
-                        .filter(d => d.day !== dayToDelete)
-                        .sort((a, b) => a.day - b.day);
-
+                    const remainingTabsSorted = config.dayTabs.filter(d => d.day !== dayToDelete).sort((a, b) => a.day - b.day);
                     const renumberMap = new Map();
                     const renumberedTabs = remainingTabsSorted.map((tab, index) => {
                         const newDay = index + 1;
-                        if (tab.day !== newDay) {
-                            renumberMap.set(tab.day, newDay);
-                        }
+                        if (tab.day !== newDay) renumberMap.set(tab.day, newDay);
                         return { ...tab, day: newDay };
                     });
 
                     for (const [oldDay, newDay] of renumberMap.entries()) {
                         const ordersToUpdateQuery = query(collection(db, "orders"), where("festivalDay", "==", oldDay));
                         const ordersToUpdateSnapshot = await getDocs(ordersToUpdateQuery);
-                        ordersToUpdateSnapshot.forEach(doc => {
-                            batch.update(doc.ref, { festivalDay: newDay });
-                        });
+                        ordersToUpdateSnapshot.forEach(doc => batch.update(doc.ref, { festivalDay: newDay }));
                     }
 
                     let newActiveDay = config.activeDay;
-                    if (config.activeDay === dayToDelete) {
-                        newActiveDay = renumberedTabs.length > 0 ? Math.max(...renumberedTabs.map(d => d.day)) : null;
-                    } else if (renumberMap.has(config.activeDay)) {
-                        newActiveDay = renumberMap.get(config.activeDay);
-                    }
-
-                    if (viewingDay === dayToDelete || renumberMap.has(viewingDay)) {
-                         viewingDay = newActiveDay || 'all';
-                    }
+                    if (config.activeDay === dayToDelete) newActiveDay = renumberedTabs.length > 0 ? Math.max(...renumberedTabs.map(d => d.day)) : null;
+                    else if (renumberMap.has(config.activeDay)) newActiveDay = renumberMap.get(config.activeDay);
+                    if (viewingDay === dayToDelete || renumberMap.has(viewingDay)) viewingDay = newActiveDay || 'all';
                     
                     batch.set(configRef, { dayTabs: renumberedTabs, activeDay: newActiveDay });
-                    
                     await batch.commit();
                     hideModal();
                     alert(`${dayToDelete}일차 데이터가 성공적으로 삭제되었습니다.`);
-
                 } catch (error) {
                     console.error("일차 삭제 중 오류 발생:", error);
                     alert("데이터 삭제 중 오류가 발생했습니다.");
@@ -308,18 +320,9 @@
                 <div class="bg-white p-8 rounded-xl shadow-2xl text-left w-full max-w-sm">
                     <h2 class="text-xl font-bold text-gray-800 mb-6">엑셀로 내보낼 데이터 선택</h2>
                     <div class="space-y-4">
-                        <label class="flex items-center ${dailyLabelClass}">
-                            <input type="checkbox" id="export-daily-sales" class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" ${dailyDisabled}>
-                            <span class="ml-3 text-gray-700">일일 매출량 (${isTotalView ? '일차 선택 필요' : viewingDay + '일차'})</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer">
-                            <input type="checkbox" id="export-total-sales" class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                            <span class="ml-3 text-gray-700">전체 매출량</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer">
-                            <input type="checkbox" id="export-orders" class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                            <span class="ml-3 text-gray-700">주문 내역 (${isTotalView ? '전체' : viewingDay + '일차'})</span>
-                        </label>
+                        <label class="flex items-center ${dailyLabelClass}"><input type="checkbox" id="export-daily-sales" class="h-5 w-5" ${dailyDisabled}><span class="ml-3 text-gray-700">일일 매출량 (${isTotalView ? '일차 선택 필요' : viewingDay + '일차'})</span></label>
+                        <label class="flex items-center cursor-pointer"><input type="checkbox" id="export-total-sales" class="h-5 w-5"><span class="ml-3 text-gray-700">전체 매출량</span></label>
+                        <label class="flex items-center cursor-pointer"><input type="checkbox" id="export-orders" class="h-5 w-5"><span class="ml-3 text-gray-700">주문 내역 (${isTotalView ? '전체' : viewingDay + '일차'})</span></label>
                     </div>
                     <div class="mt-8 flex justify-end space-x-4">
                         <button data-action="hideModal" class="px-6 py-2 bg-gray-300 rounded-lg">취소</button>
@@ -335,35 +338,20 @@
                 if (document.getElementById('export-daily-sales')?.checked) {
                     const dailyOrders = allOrders.filter(order => order.festivalDay === viewingDay);
                     const { totalRevenue, menuSales } = calculateSales(dailyOrders);
-                    const data = [['항목', '수량/금액']];
-                    data.push(['총 매출', totalRevenue]);
-                    Object.entries(menuSales).forEach(([name, qty]) => data.push([name, qty]));
-                    const ws = XLSX.utils.aoa_to_sheet(data);
+                    const ws = XLSX.utils.aoa_to_sheet([['항목', '수량/금액'], ['총 매출', totalRevenue], ...Object.entries(menuSales)]);
                     XLSX.utils.book_append_sheet(wb, ws, `${viewingDay}일차 매출`);
                     sheetsAdded++;
                 }
-
                 if (document.getElementById('export-total-sales')?.checked) {
                     const { totalRevenue, menuSales } = calculateSales(allOrders);
-                    const data = [['항목', '수량/금액']];
-                    data.push(['총 매출', totalRevenue]);
-                    Object.entries(menuSales).forEach(([name, qty]) => data.push([name, qty]));
-                    const ws = XLSX.utils.aoa_to_sheet(data);
+                    const ws = XLSX.utils.aoa_to_sheet([['항목', '수량/금액'], ['총 매출', totalRevenue], ...Object.entries(menuSales)]);
                     XLSX.utils.book_append_sheet(wb, ws, '전체 매출');
                     sheetsAdded++;
                 }
-
                 if (document.getElementById('export-orders')?.checked) {
                     const isTotalView = viewingDay === 'all';
                     const ordersToExport = isTotalView ? allOrders : allOrders.filter(order => order.festivalDay === viewingDay);
-                    const data = ordersToExport.map(order => ({
-                        '주문시간': formatTimestamp(order.timestamp, true),
-                        '일차': order.festivalDay,
-                        '테이블': order.tableNumber,
-                        '메뉴': order.items.map(item => `${item.name} x${item.quantity}`).join(', '),
-                        '총금액': order.totalPrice,
-                        '상태': order.status
-                    }));
+                    const data = ordersToExport.map(order => ({'주문시간': formatTimestamp(order.timestamp, true),'일차': order.festivalDay,'테이블': order.tableNumber,'메뉴': order.items.map(item => `${item.name} x${item.quantity}`).join(', '),'총금액': order.totalPrice,'상태': order.status}));
                     const ws = XLSX.utils.json_to_sheet(data);
                     XLSX.utils.book_append_sheet(wb, ws, `${isTotalView ? '전체' : viewingDay + '일차'} 주문내역`);
                     sheetsAdded++;
@@ -399,37 +387,31 @@
 
         document.body.addEventListener('click', e => {
             let target = e.target;
-            while(target && !target.dataset.action) {
+            while(target && !target.dataset.action && target.id !== 'add-day-btn' && target.id !== 'export-btn' && !target.classList.contains('tab-btn')) {
                 target = target.parentElement;
             }
 
-            if (target && target.dataset.action) {
-                const action = target.dataset.action;
-                if (appFunctions[action]) {
-                    const day = target.dataset.day ? parseInt(target.dataset.day) : null;
-                    const id = target.dataset.id;
-                    const status = target.dataset.status;
+            if(!target) return;
 
-                    if (action.includes('Day')) {
-                        appFunctions[action](day);
-                    } else if (action === 'updateStatus') {
-                        appFunctions[action](id, status);
-                    } else if (action === 'showDeleteModal') {
-                        appFunctions[action](id);
-                    } else {
-                        appFunctions[action]();
-                    }
-                }
-            } else if (e.target.id === 'add-day-btn') {
+            const action = target.dataset.action;
+            if (action && appFunctions[action]) {
+                const day = target.dataset.day ? parseInt(target.dataset.day) : null;
+                const id = target.dataset.id;
+                const status = target.dataset.status;
+                if (day !== null && !isNaN(day)) appFunctions[action](day);
+                else if (id && status) appFunctions[action](id, status);
+                else if (id) appFunctions[action](id);
+                else appFunctions[action]();
+            } else if (target.id === 'add-day-btn') {
                 const dayNumbers = config.dayTabs.map(d => d.day).filter(d => !isNaN(d));
                 const nextDay = dayNumbers.length > 0 ? Math.max(0, ...dayNumbers) + 1 : 1;
                 const newDayInfo = { day: nextDay, date: null };
                 const updatedDayTabs = [...config.dayTabs, newDayInfo];
                 setDoc(configRef, { dayTabs: updatedDayTabs }, { merge: true });
-            } else if (e.target.id === 'export-btn') {
+            } else if (target.id === 'export-btn') {
                 appFunctions.showExportModal();
-            } else if (e.target.matches('.tab-btn')) {
-                 const day = e.target.dataset.day;
+            } else if (target.matches('.tab-btn')) {
+                 const day = target.dataset.day;
                  viewingDay = day === 'all' ? 'all' : parseInt(day);
                  renderTabs();
                  renderDashboard();
@@ -461,7 +443,27 @@
         });
 
         onSnapshot(query(collection(db, "orders"), orderBy("timestamp", "desc")), (snapshot) => {
-            allOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const newOrdersMap = new Map();
+            snapshot.docs.forEach(doc => newOrdersMap.set(doc.id, { id: doc.id, ...doc.data() }));
+
+            if (previousOrdersMap.size > 0 && !isMuted) {
+                newOrdersMap.forEach((order, id) => {
+                    const prevOrder = previousOrdersMap.get(id);
+                    if (!prevOrder) { // 신규 주문
+                        if (newOrderSound) newOrderSound.triggerAttackRelease("C5", "8n");
+                    } else if (order.totalPrice > prevOrder.totalPrice) { // 추가 주문
+                        if (updateOrderSound) updateOrderSound.triggerAttackRelease("G5", "8n");
+                        const card = orderList.querySelector(`[data-order-id="${id}"]`);
+                        if (card) {
+                            card.classList.add('highlight-update');
+                            setTimeout(() => card.classList.remove('highlight-update'), 3000);
+                        }
+                    }
+                });
+            }
+            
+            allOrders = Array.from(newOrdersMap.values());
+            previousOrdersMap = new Map(newOrdersMap);
             renderDashboard();
         });
     </script>
