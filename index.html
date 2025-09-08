@@ -202,23 +202,24 @@
                 try {
                     const q = query(collection(db, "orders"), 
                         where("tableNumber", "==", parsedTableNumber),
-                        where("festivalDay", "==", activeDayInfo.day),
-                        where("status", "in", ["주문 접수 중", "요리 중", "서빙 완료"])
+                        where("festivalDay", "==", activeDayInfo.day)
                     );
 
                     const querySnapshot = await getDocs(q);
+                    const activeDocs = querySnapshot.docs.filter(doc => doc.data().status !== "처리 완료");
 
-                    if (!querySnapshot.empty) {
+
+                    if (activeDocs.length > 0) {
                         // --- 추가 주문 로직 ---
-                        const existingOrderDoc = querySnapshot.docs[0];
+                        const existingOrderDoc = activeDocs[0];
                         const existingData = existingOrderDoc.data();
                         
                         const newBatch = {
-                            acknowledged: false, // 이 추가 주문은 아직 확인 안 됨
+                            acknowledged: false,
                             items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price }))
                         };
                         
-                        const updatedBatches = [...existingData.orderBatches, newBatch];
+                        const updatedBatches = [...(existingData.orderBatches || []), newBatch];
                         const newTotalPrice = updatedBatches.flat().flatMap(batch => batch.items).reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
                         await updateDoc(existingOrderDoc.ref, {
@@ -232,7 +233,7 @@
                     } else {
                         // --- 신규 주문 로직 ---
                         const firstBatch = {
-                            acknowledged: false, // 신규 주문도 처음엔 확인 안 됨
+                            acknowledged: false,
                             items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price }))
                         };
                         
