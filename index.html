@@ -240,19 +240,19 @@
                         };
                         
                         const totalPrice = firstBatch.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                        const now = new Date();
-                        const timeString = now.toTimeString().split(' ')[0];
-                        const finalTimestamp = new Date(`${activeDayInfo.date}T${timeString}`);
+                        //const now = new Date();
+                        //const timeString = now.toTimeString().split(' ')[0];
+                        //const finalTimestamp = new Date(`${activeDayInfo.date}T${timeString}`);
 
                         await addDoc(collection(db, "orders"), {
-                            tableNumber: parsedTableNumber,
-                            orderBatches: [firstBatch],
-                            totalPrice: totalPrice,
-                            status: "주문 접수 중",
-                            timestamp: finalTimestamp,
-                            festivalDay: activeDayInfo.day,
-                            isHighlighted: true
-                        });
+    						tableNumber: parsedTableNumber,
+    						orderBatches: [firstBatch],
+    						totalPrice: totalPrice,
+    						status: "주문 접수 중",
+    						timestamp: new Date(), // ✅ 이렇게 현재 시간으로 바로 설정
+    						festivalDay: activeDayInfo.day,
+    						isHighlighted: true
+                      		  });
                         showAlert("주문 완료!", "주문이 성공적으로 접수되었습니다.", 2000);
                     }
                     setTimeout(() => { window.location.reload(); }, 2100);
@@ -266,4 +266,5 @@
     </script>
 </body>
 </html>
+
 
