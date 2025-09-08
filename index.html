@@ -195,11 +195,11 @@
                 const parsedTableNumber = parseInt(tableNumber);
 
                 try {
-                    // Check for existing active order for this table
+                    // FIX: Check for existing active order using a more stable query
                     const q = query(collection(db, "orders"), 
                         where("tableNumber", "==", parsedTableNumber),
                         where("festivalDay", "==", activeDayInfo.day),
-                        where("status", "!=", "처리 완료")
+                        where("status", "in", ["주문 접수 중", "요리 중", "서빙 완료"])
                     );
 
                     const querySnapshot = await getDocs(q);
