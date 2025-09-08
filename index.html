@@ -115,8 +115,14 @@
             }
             fetchConfig();
 
-            // --- ✅ 새로운 메뉴 데이터 ---
+            // --- ✅ 새로운 메뉴 데이터 (자릿세 추가) ---
             const menuData = [
+                {
+                    category: '🪑 자릿세(1인 1자릿세 부탁드립니다)',
+                    items: [
+                        { id: 'seat-charge', name: '1인', price: 3000 },
+                    ]
+                },
                 {
                     category: '🍗 치킨류',
                     items: [
@@ -126,7 +132,7 @@
                     ]
                 },
                 {
-                    category: '🍟 세트',
+                    category: '🍗+🍟 세트',
                     items: [
                         { id: 'fried-set', name: '후라이드치킨 (500g) + 감자튀김 (150g)', price: 19900 },
                         { id: 'ppuring-set', name: '뿌링클치킨 (500g) + 감자튀김 (150g)', price: 20900 },
@@ -134,7 +140,7 @@
                     ]
                 },
                 {
-                    category: '🍤 사이드',
+                    category: '🥤 사이드',
                     items: [
                         { id: 'fries', name: '감자튀김 (150g)', price: 6900 },
                         { id: 'takoyaki', name: '타코야끼 (8알)', price: 7900 },
@@ -152,20 +158,16 @@
             const menuItemTemplate = document.getElementById('menu-item-template');
             const cart = {};
 
-            // --- ✅ 카테고리별로 메뉴를 렌더링하는 로직 ---
-            menuSection.innerHTML = '<h2 class="text-2xl font-bold text-gray-800 mb-4">메뉴판</h2>'; // 기존 h2 유지
+            menuSection.innerHTML = '<h2 class="text-2xl font-bold text-gray-800 mb-4">메뉴판</h2>'; 
 
             menuData.forEach(categoryInfo => {
-                // 카테고리 제목 생성
                 const categoryTitle = document.createElement('h3');
                 categoryTitle.className = 'text-xl font-bold text-gray-700 mt-8 mb-3';
                 categoryTitle.textContent = categoryInfo.category;
                 menuSection.appendChild(categoryTitle);
 
-                // 카테고리 내 메뉴 아이템들 생성
                 categoryInfo.items.forEach(item => {
                     const clone = menuItemTemplate.content.cloneNode(true);
-                    const menuItemDiv = clone.querySelector('.bg-white'); // 최상위 div 선택
                     
                     clone.querySelector('h3').textContent = item.name;
                     clone.querySelector('p').textContent = `${item.price.toLocaleString()}원`;
