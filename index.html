@@ -19,7 +19,7 @@
 
     <div class="container mx-auto max-w-lg p-4">
         <header class="text-center my-6">
-            <h1 class="text-4xl font-bold text-indigo-600">🔥 술융덩이 🔥</h1>
+            <h1 class="text-4xl font-bold text-indigo-600">🔥 박준혁은 보아라 🔥</h1>
             <p class="text-gray-600 mt-2">간편하게 주문하세요!</p>
         </header>
 
@@ -169,33 +169,37 @@
             }
 
             submitOrderBtn.addEventListener('click', async () => {
+                submitOrderBtn.disabled = true;
+
                 if (!configData) {
                     showAlert("오류", "시스템이 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.");
+                    submitOrderBtn.disabled = false;
                     return;
                 }
                 const activeDayInfo = configData.dayTabs.find(d => d.day === configData.activeDay);
                 if (!activeDayInfo || !activeDayInfo.date) {
                     showAlert("주문 불가", "현재 주문 접수 시간이 아닙니다.");
+                    submitOrderBtn.disabled = false;
                     return;
                 }
 
                 const tableNumber = document.getElementById('table-number').value;
-
                 if (!tableNumber) {
                     showAlert("입력 오류", "테이블 번호를 입력해주세요.");
+                    submitOrderBtn.disabled = false;
                     return;
                 }
                 
                 const orderedItems = Object.values(cart).filter(item => item.quantity > 0);
                 if (orderedItems.length === 0) {
                     showAlert("입력 오류", "메뉴를 선택해주세요.");
+                    submitOrderBtn.disabled = false;
                     return;
                 }
 
                 const parsedTableNumber = parseInt(tableNumber);
 
                 try {
-                    // FIX: Check for existing active order using a more stable query
                     const q = query(collection(db, "orders"), 
                         where("tableNumber", "==", parsedTableNumber),
                         where("festivalDay", "==", activeDayInfo.day),
@@ -209,40 +213,42 @@
                         const existingOrderDoc = querySnapshot.docs[0];
                         const existingData = existingOrderDoc.data();
                         
-                        const mergedItems = [...existingData.items];
-                        let newTotalPrice = existingData.totalPrice;
-
-                        orderedItems.forEach(newItem => {
-                            const existingItem = mergedItems.find(item => item.name === newItem.name);
-                            if (existingItem) {
-                                existingItem.quantity += newItem.quantity;
-                            } else {
-                                mergedItems.push({ name: newItem.name, quantity: newItem.quantity, price: newItem.price });
-                            }
-                            newTotalPrice += newItem.price * newItem.quantity;
-                        });
+                        const newBatch = {
+                            acknowledged: false, // 이 추가 주문은 아직 확인 안 됨
+                            items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price }))
+                        };
+                        
+                        const updatedBatches = [...existingData.orderBatches, newBatch];
+                        const newTotalPrice = updatedBatches.flat().flatMap(batch => batch.items).reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
                         await updateDoc(existingOrderDoc.ref, {
-                            items: mergedItems,
+                            orderBatches: updatedBatches,
                             totalPrice: newTotalPrice,
-                            timestamp: new Date() // Update timestamp to show it's a recent update
+                            timestamp: new Date(),
+                            isHighlighted: true
                         });
 
                         showAlert("추가 주문 완료!", "기존 주문에 메뉴가 추가되었습니다.", 2000);
                     } else {
                         // --- 신규 주문 로직 ---
-                        const totalPrice = orderedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                        const firstBatch = {
+                            acknowledged: false, // 신규 주문도 처음엔 확인 안 됨
+                            items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price }))
+                        };
+                        
+                        const totalPrice = firstBatch.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
                         const now = new Date();
                         const timeString = now.toTimeString().split(' ')[0];
                         const finalTimestamp = new Date(`${activeDayInfo.date}T${timeString}`);
 
                         await addDoc(collection(db, "orders"), {
                             tableNumber: parsedTableNumber,
-                            items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price })),
+                            orderBatches: [firstBatch],
                             totalPrice: totalPrice,
                             status: "주문 접수 중",
                             timestamp: finalTimestamp,
-                            festivalDay: activeDayInfo.day
+                            festivalDay: activeDayInfo.day,
+                            isHighlighted: true
                         });
                         showAlert("주문 완료!", "주문이 성공적으로 접수되었습니다.", 2000);
                     }
@@ -250,11 +256,10 @@
                 } catch (e) {
                     console.error("주문 처리 오류: ", e);
                     showAlert("주문 실패", "주문 처리 중 오류가 발생했습니다.");
+                    submitOrderBtn.disabled = false;
                 }
             });
         }
     </script>
 </body>
 </html>
-```
-
