@@ -33,7 +33,7 @@
     <div class="container mx-auto p-4 sm:p-6 lg:p-8">
         <header class="text-center my-6 relative">
             <h1 class="text-4xl font-bold text-gray-800">주문 관리 대시보드</h1>
-            <p class="text-gray-600 mt-2">일자를 선택해 주문을 관리하고, 새 일차를 시작하세요.</p>
+            <p class="text-gray-600 mt-2">22일자를 선택해 주문을 관리하고, 새 일차를 시작하세요.</p>
             <button id="sound-toggle-btn" class="absolute top-0 right-0 p-2 rounded-full hover:bg-gray-200 transition">
                 <!-- 아이콘은 스크립트에서 동적으로 설정 -->
             </button>
@@ -140,6 +140,7 @@
 
             orderList.innerHTML = '';
             const statusPriority = { "주문 접수 중": 1, "요리 중": 2, "서빙 완료": 3, "처리 완료": 4 };
+            ordersToDisplay.sort((a, b) => (new Date(b.timestamp.seconds * 1000)) - (new Date(a.timestamp.seconds * 1000))); // 최신순으로 정렬
             ordersToDisplay.sort((a, b) => (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99));
             ordersToDisplay.forEach(order => {
                 const cardWrapper = document.createElement('div');
