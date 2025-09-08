@@ -122,7 +122,6 @@
             const menuSales = {};
             ordersToDisplay.forEach(order => { totalRevenue += order.totalPrice; });
             
-            // FIX: 이전/신규 데이터 구조 모두 처리
             const allItems = ordersToDisplay.flatMap(order => 
                 order.orderBatches ? order.orderBatches.flatMap(batch => batch.items) : (order.items || [])
             );
@@ -154,7 +153,6 @@
             const statusBtnStyles = { "주문 접수 중": "bg-yellow-100 text-yellow-800", "요리 중": "bg-blue-100 text-blue-800", "서빙 완료": "bg-green-100 text-green-800", "처리 완료": "bg-gray-200 text-gray-500" };
             const highlightClass = order.isHighlighted ? 'highlight-new-order' : (statusStyles[order.status] || '');
 
-            // FIX: 이전 데이터 구조(items)와 신규 데이터 구조(orderBatches)를 모두 처리
             const batches = order.orderBatches || [{ acknowledged: true, items: order.items || [] }];
             const batchesHTML = batches.map((batch, index) => {
                 const itemsHTML = batch.items.map(item => {
@@ -365,14 +363,7 @@
                 if (document.getElementById('export-orders')?.checked) {
                     const isTotalView = viewingDay === 'all';
                     const ordersToExport = isTotalView ? allOrders : allOrders.filter(order => order.festivalDay === viewingDay);
-                    const data = ordersToExport.map(order => ({
-                        '주문시간': formatTimestamp(order.timestamp, true),
-                        '일차': order.festivalDay,
-                        '테이블': order.tableNumber,
-                        '메뉴': (order.orderBatches || [{items: order.items || []}]).flatMap(b => b.items).map(item => `${item.name} x${item.quantity}`).join(', '),
-                        '총금액': order.totalPrice,
-                        '상태': order.status
-                    }));
+                    const data = ordersToExport.map(order => ({'주문시간': formatTimestamp(order.timestamp, true),'일차': order.festivalDay,'테이블': order.tableNumber,'메뉴': (order.orderBatches || [{items: order.items || []}]).flatMap(b => b.items).map(item => `${item.name} x${item.quantity}`).join(', '),'총금액': order.totalPrice,'상태': order.status}));
                     const ws = XLSX.utils.json_to_sheet(data);
                     XLSX.utils.book_append_sheet(wb, ws, `${isTotalView ? '전체' : viewingDay + '일차'} 주문내역`);
                     sheetsAdded++;
@@ -475,4 +466,3 @@
     </script>
 </body>
 </html>
-
