@@ -23,15 +23,9 @@
             <p class="text-gray-600 mt-2">간편하게 주문하세요!</p>
         </header>
 
-        <div class="bg-white p-6 rounded-xl shadow-md mb-6 fade-in space-y-4">
-            <div>
-                <label for="table-number" class="block text-lg font-semibold text-gray-800 mb-2">테이블 번호</label>
-                <input type="number" id="table-number" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="테이블 번호를 입력하세요">
-            </div>
-            <div>
-                <label for="order-number" class="block text-lg font-semibold text-gray-800 mb-2">주문번호</label>
-                <input type="text" id="order-number" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="직원에게 받은 주문번호를 입력하세요">
-            </div>
+        <div class="bg-white p-6 rounded-xl shadow-md mb-6 fade-in">
+            <label for="table-number" class="block text-lg font-semibold text-gray-800 mb-2">테이블 번호</label>
+            <input type="number" id="table-number" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="테이블 번호를 입력하세요">
         </div>
 
         <div id="menu-section" class="space-y-4 fade-in" style="animation-delay: 0.1s;">
@@ -71,16 +65,16 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, doc, getDoc, query, where, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
        const firebaseConfig = {
-  		apiKey: "AIzaSyAWzxJrQROhzSnVJCmTEUDfpYn-TJqHbHQ",
-  		authDomain: "order-4f8a2.firebaseapp.com",
-  		projectId: "order-4f8a2",
-  		storageBucket: "order-4f8a2.firebasestorage.app",
-  		messagingSenderId: "69210404028",
-  		appId: "1:69210404028:web:25fe58abbcbff4d1e9ccb9",
-  		measurementId: "G-JBK15C76HS"
+ 		apiKey: "AIzaSyAWzxJrQROhzSnVJCmTEUDfpYn-TJqHbHQ",
+ 		authDomain: "order-4f8a2.firebaseapp.com",
+ 		projectId: "order-4f8a2",
+ 		storageBucket: "order-4f8a2.appspot.com",
+ 		messagingSenderId: "69210404028",
+ 		appId: "1:69210404028:web:25fe58abbcbff4d1e9ccb9",
+ 		measurementId: "G-JBK15C76HS"
 		};
 
         const submitOrderBtn = document.getElementById('submit-order');
@@ -186,10 +180,9 @@
                 }
 
                 const tableNumber = document.getElementById('table-number').value;
-                const orderNumber = document.getElementById('order-number').value; // '주문번호'로 변경
 
-                if (!tableNumber || !orderNumber) {
-                    showAlert("입력 오류", "테이블 번호와 주문번호를 모두 입력해주세요.");
+                if (!tableNumber) {
+                    showAlert("입력 오류", "테이블 번호를 입력해주세요.");
                     return;
                 }
                 
@@ -199,24 +192,63 @@
                     return;
                 }
 
-                const totalPrice = orderedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                const now = new Date();
-                const timeString = now.toTimeString().split(' ')[0];
-                const finalTimestamp = new Date(`${activeDayInfo.date}T${timeString}`);
+                const parsedTableNumber = parseInt(tableNumber);
 
                 try {
-                    await addDoc(collection(db, "orders"), {
-                        tableNumber: parseInt(tableNumber),
-                        orderNumber: orderNumber, // 주문번호 필드 추가
-                        items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price })),
-                        totalPrice: totalPrice,
-                        status: "주문 접수 중",
-                        timestamp: finalTimestamp,
-                        festivalDay: activeDayInfo.day
-                    });
-                    showAlert("주문 완료!", "주문이 성공적으로 접수되었습니다.", 2000);
+                    // Check for existing active order for this table
+                    const q = query(collection(db, "orders"), 
+                        where("tableNumber", "==", parsedTableNumber),
+                        where("festivalDay", "==", activeDayInfo.day),
+                        where("status", "!=", "처리 완료")
+                    );
+
+                    const querySnapshot = await getDocs(q);
+
+                    if (!querySnapshot.empty) {
+                        // --- 추가 주문 로직 ---
+                        const existingOrderDoc = querySnapshot.docs[0];
+                        const existingData = existingOrderDoc.data();
+                        
+                        const mergedItems = [...existingData.items];
+                        let newTotalPrice = existingData.totalPrice;
+
+                        orderedItems.forEach(newItem => {
+                            const existingItem = mergedItems.find(item => item.name === newItem.name);
+                            if (existingItem) {
+                                existingItem.quantity += newItem.quantity;
+                            } else {
+                                mergedItems.push({ name: newItem.name, quantity: newItem.quantity, price: newItem.price });
+                            }
+                            newTotalPrice += newItem.price * newItem.quantity;
+                        });
+
+                        await updateDoc(existingOrderDoc.ref, {
+                            items: mergedItems,
+                            totalPrice: newTotalPrice,
+                            timestamp: new Date() // Update timestamp to show it's a recent update
+                        });
+
+                        showAlert("추가 주문 완료!", "기존 주문에 메뉴가 추가되었습니다.", 2000);
+                    } else {
+                        // --- 신규 주문 로직 ---
+                        const totalPrice = orderedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                        const now = new Date();
+                        const timeString = now.toTimeString().split(' ')[0];
+                        const finalTimestamp = new Date(`${activeDayInfo.date}T${timeString}`);
+
+                        await addDoc(collection(db, "orders"), {
+                            tableNumber: parsedTableNumber,
+                            items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price })),
+                            totalPrice: totalPrice,
+                            status: "주문 접수 중",
+                            timestamp: finalTimestamp,
+                            festivalDay: activeDayInfo.day
+                        });
+                        showAlert("주문 완료!", "주문이 성공적으로 접수되었습니다.", 2000);
+                    }
                     setTimeout(() => { window.location.reload(); }, 2100);
                 } catch (e) {
+                    console.error("주문 처리 오류: ", e);
                     showAlert("주문 실패", "주문 처리 중 오류가 발생했습니다.");
                 }
             });
@@ -224,3 +256,4 @@
     </script>
 </body>
 </html>
+```
