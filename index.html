@@ -19,7 +19,7 @@
 
     <div class="container mx-auto max-w-lg p-4">
         <header class="text-center my-6">
-            <h1 class="text-4xl font-bold text-indigo-600">🔥 융 🔥</h1>
+            <h1 class="text-4xl font-bold text-indigo-600">🔥 박준혁은 보아라 🔥</h1>
             <p class="text-gray-600 mt-2">간편하게 주문하세요!</p>
         </header>
 
@@ -202,28 +202,39 @@
                 try {
                     const q = query(collection(db, "orders"), 
                         where("tableNumber", "==", parsedTableNumber),
-                        where("festivalDay", "==", activeDayInfo.day)
+                        where("festivalDay", "==", activeDayInfo.day),
+                        where("status", "in", ["주문 접수 중", "요리 중", "서빙 완료"])
                     );
 
                     const querySnapshot = await getDocs(q);
-                    const activeDocs = querySnapshot.docs.filter(doc => doc.data().status !== "처리 완료");
 
-
-                    if (activeDocs.length > 0) {
+                    if (!querySnapshot.empty) {
                         // --- 추가 주문 로직 ---
-                        const existingOrderDoc = activeDocs[0];
+                        const existingOrderDoc = querySnapshot.docs[0];
                         const existingData = existingOrderDoc.data();
                         
-                        const newBatch = {
-                            acknowledged: false,
-                            items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price }))
-                        };
-                        
-                        const updatedBatches = [...(existingData.orderBatches || []), newBatch];
-                        const newTotalPrice = updatedBatches.flat().flatMap(batch => batch.items).reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                        // 기존 아이템들의 isNew 상태를 false로 초기화
+                        const currentItems = existingData.items.map(item => ({ ...item, isNew: false }));
+                        let newTotalPrice = existingData.totalPrice;
+
+                        orderedItems.forEach(newItemFromCart => {
+                            const existingItem = currentItems.find(item => item.name === newItemFromCart.name);
+                            if (existingItem) {
+                                existingItem.quantity += newItemFromCart.quantity;
+                                existingItem.isNew = true; // 수량이 추가되었으므로 새 항목으로 표시
+                            } else {
+                                currentItems.push({ 
+                                    name: newItemFromCart.name, 
+                                    quantity: newItemFromCart.quantity, 
+                                    price: newItemFromCart.price,
+                                    isNew: true // 완전히 새로운 항목
+                                });
+                            }
+                            newTotalPrice += newItemFromCart.price * newItemFromCart.quantity;
+                        });
 
                         await updateDoc(existingOrderDoc.ref, {
-                            orderBatches: updatedBatches,
+                            items: currentItems,
                             totalPrice: newTotalPrice,
                             timestamp: new Date(),
                             isHighlighted: true
@@ -232,19 +243,20 @@
                         showAlert("추가 주문 완료!", "기존 주문에 메뉴가 추가되었습니다.", 2000);
                     } else {
                         // --- 신규 주문 로직 ---
-                        const firstBatch = {
-                            acknowledged: false,
-                            items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price }))
-                        };
-                        
-                        const totalPrice = firstBatch.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                        const newItems = orderedItems.map(item => ({ 
+                            name: item.name, 
+                            quantity: item.quantity, 
+                            price: item.price,
+                            isNew: true // 모든 항목을 새 항목으로 표시
+                        }));
+                        const totalPrice = newItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
                         const now = new Date();
                         const timeString = now.toTimeString().split(' ')[0];
                         const finalTimestamp = new Date(`${activeDayInfo.date}T${timeString}`);
 
                         await addDoc(collection(db, "orders"), {
                             tableNumber: parsedTableNumber,
-                            orderBatches: [firstBatch],
+                            items: newItems,
                             totalPrice: totalPrice,
                             status: "주문 접수 중",
                             timestamp: finalTimestamp,
@@ -264,4 +276,3 @@
     </script>
 </body>
 </html>
-
