@@ -407,6 +407,7 @@
                     newConfig.dayTabs = validTabs;
                     await setDoc(configRef, { dayTabs: validTabs }, { merge: true });
                 }
+                
                 config = newConfig;
                 if (viewingDay === null || (viewingDay !== 'all' && !config.dayTabs.some(d => d.day === viewingDay))) {
                     viewingDay = config.activeDay || (config.dayTabs.length > 0 ? Math.max(...config.dayTabs.map(d => d.day)) : 'all');
