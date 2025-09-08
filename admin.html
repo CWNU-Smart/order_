@@ -16,14 +16,10 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         .summary-card, .order-card { animation: fadeIn 0.5s ease-in-out; }
 
-        /* 추가 주문 알림 애니메이션 */
-        @keyframes pulse-green {
-            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-        }
-        .highlight-update {
-            animation: pulse-green 1.5s 2;
+        /* 신규/추가 주문 알림 테두리 */
+        .highlight-new-order {
+            border-width: 4px;
+            border-color: #ef4444; /* red-500 */
         }
     </style>
 </head>
@@ -38,10 +34,7 @@
             </button>
         </header>
 
-        <div id="day-tabs-container" class="mb-6 flex items-center justify-center flex-wrap gap-3">
-            <!-- 일자 탭이 여기에 동적으로 생성됩니다. -->
-        </div>
-
+        <div id="day-tabs-container" class="mb-6 flex items-center justify-center flex-wrap gap-3"></div>
         <section id="summary-section" class="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6"></section>
         <main id="order-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></main>
     </div>
@@ -64,8 +57,7 @@
 		};
         
         if (!firebaseConfig.projectId || firebaseConfig.projectId === "YOUR_PROJECT_ID") {
-            document.body.innerHTML = `
-            <div class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+            document.body.innerHTML = `<div class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
                 <div class="p-8 text-center bg-white border-4 border-dashed border-red-300 rounded-lg shadow-lg max-w-2xl">
                     <h1 class="text-3xl font-bold mb-4 text-red-600">Firebase 설정 오류</h1>
                     <p class="mb-4 text-gray-700">이 앱을 사용하려면 Firebase 설정이 필요합니다.</p>
@@ -93,7 +85,6 @@
         let isMuted = false;
         
         const configRef = doc(db, "festivalConfig", "settings");
-
         const dayTabsContainer = document.getElementById('day-tabs-container');
         const summarySection = document.getElementById('summary-section');
         const orderList = document.getElementById('order-list');
@@ -107,8 +98,6 @@
                 newOrderSound = new Tone.Synth().toDestination();
                 updateOrderSound = new Tone.Synth({ oscillator: { type: 'triangle' } }).toDestination();
                 console.log("사운드 준비 완료");
-            } else {
-                console.error("Tone.js 라이브러리를 찾을 수 없습니다.");
             }
         }
         
@@ -125,20 +114,15 @@
         soundToggleBtn.innerHTML = soundOnIcon;
         soundToggleBtn.addEventListener('click', toggleSound);
 
-
         const formatTimestamp = (ts, includeDate = false) => {
             if (!ts) return '';
-            const options = includeDate 
-                ? { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit' }
-                : { hour: '2-digit', minute: '2-digit' };
+            const options = includeDate ? { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit' } : { hour: '2-digit', minute: '2-digit' };
             return new Date(ts.seconds * 1000).toLocaleString('ko-KR', options);
         };
 
         function renderDashboard() {
             const isTotalView = viewingDay === 'all';
-            const ordersToDisplay = isTotalView
-                ? allOrders
-                : allOrders.filter(order => order.festivalDay === viewingDay);
+            const ordersToDisplay = isTotalView ? allOrders : allOrders.filter(order => order.festivalDay === viewingDay);
             
             let totalRevenue = 0;
             const menuSales = {};
@@ -168,11 +152,12 @@
         }
         
         function createOrderCardHTML(order) {
-            const statusStyles = { "주문 접수 중": "border-yellow-400", "요리 중": "border-blue-400", "서빙 완료": "border-green-400", "처리 완료": "" };
+            const statusStyles = { "주문 접수 중": "border-yellow-400", "요리 중": "border-blue-400", "서빙 완료": "border-green-400", "처리 완료": "border-gray-300" };
             const statusBtnStyles = { "주문 접수 중": "bg-yellow-100 text-yellow-800", "요리 중": "bg-blue-100 text-blue-800", "서빙 완료": "bg-green-100 text-green-800", "처리 완료": "bg-gray-200 text-gray-500" };
+            const highlightClass = order.isHighlighted ? 'highlight-new-order' : (statusStyles[order.status] || '');
             
             return `
-            <div data-order-id="${order.id}" class="bg-white rounded-xl shadow-lg p-5 flex flex-col transition-opacity duration-500 relative order-card border-4 ${statusStyles[order.status] || ''} ${order.status === '처리 완료' ? 'opacity-50' : ''}">
+            <div data-order-id="${order.id}" class="bg-white rounded-xl shadow-lg p-5 flex flex-col transition-all duration-300 relative order-card border-4 ${highlightClass} ${order.status === '처리 완료' ? 'opacity-60' : ''}">
                 <div class="flex justify-between items-start mb-3">
                     <h2 class="text-2xl font-bold text-indigo-600 pr-4">테이블 <span class="table-number">${order.tableNumber}</span></h2>
                     <div class="text-right flex-shrink-0">
@@ -217,6 +202,15 @@
             const exportBtnHTML = `<button id="export-btn" class="px-4 py-2 bg-gray-700 text-white rounded-md font-semibold text-sm hover:bg-gray-800 shadow">엑셀 내보내기</button>`;
 
             dayTabsContainer.innerHTML = totalTabHTML + tabsHTML + addDayBtnHTML + exportBtnHTML;
+        }
+
+        function showModal(innerHTML) {
+            modalContainer.innerHTML = `<div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">${innerHTML}</div>`;
+            modalContainer.classList.remove('hidden');
+        }
+        function hideModal() {
+            modalContainer.classList.add('hidden');
+            modalContainer.innerHTML = '';
         }
 
         const appFunctions = {
@@ -310,12 +304,11 @@
                 document.getElementById('confirm-delete-btn').onclick = () => appFunctions.confirmDelete(orderId);
             },
             confirmDelete: async (orderId) => { await deleteDoc(doc(db, "orders", orderId)); hideModal(); },
-            updateStatus: async (orderId, status) => { await updateDoc(doc(db, "orders", orderId), { status }); },
+            updateStatus: async (orderId, status) => { await updateDoc(doc(db, "orders", orderId), { status: status, isHighlighted: false }); },
             showExportModal: () => {
                 const isTotalView = viewingDay === 'all';
                 const dailyDisabled = isTotalView ? 'disabled' : '';
                 const dailyLabelClass = isTotalView ? 'text-gray-400 cursor-not-allowed' : 'cursor-pointer';
-
                 showModal(`
                 <div class="bg-white p-8 rounded-xl shadow-2xl text-left w-full max-w-sm">
                     <h2 class="text-xl font-bold text-gray-800 mb-6">엑셀로 내보낼 데이터 선택</h2>
@@ -357,24 +350,13 @@
                     sheetsAdded++;
                 }
 
-                if (sheetsAdded > 0) {
-                    XLSX.writeFile(wb, `festival_data_${new Date().toISOString().split('T')[0]}.xlsx`);
-                    hideModal();
-                } else {
-                    alert('내보낼 항목을 하나 이상 선택해주세요.');
-                }
+                if (sheetsAdded > 0) XLSX.writeFile(wb, `festival_data_${new Date().toISOString().split('T')[0]}.xlsx`);
+                else alert('내보낼 항목을 하나 이상 선택해주세요.');
+                hideModal();
             },
             hideModal: hideModal
         };
         
-        function showModal(innerHTML) {
-            modalContainer.innerHTML = `<div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">${innerHTML}</div>`;
-            modalContainer.classList.remove('hidden');
-        }
-        function hideModal() {
-            modalContainer.classList.add('hidden');
-            modalContainer.innerHTML = '';
-        }
         function calculateSales(orders) {
             let totalRevenue = 0;
             const menuSales = {};
@@ -387,7 +369,7 @@
 
         document.body.addEventListener('click', e => {
             let target = e.target;
-            while(target && !target.dataset.action && target.id !== 'add-day-btn' && target.id !== 'export-btn' && !target.classList.contains('tab-btn')) {
+            while(target && !target.dataset.action && target.id !== 'add-day-btn' && target.id !== 'export-btn' && !target.matches('.tab-btn')) {
                 target = target.parentElement;
             }
 
@@ -405,9 +387,7 @@
             } else if (target.id === 'add-day-btn') {
                 const dayNumbers = config.dayTabs.map(d => d.day).filter(d => !isNaN(d));
                 const nextDay = dayNumbers.length > 0 ? Math.max(0, ...dayNumbers) + 1 : 1;
-                const newDayInfo = { day: nextDay, date: null };
-                const updatedDayTabs = [...config.dayTabs, newDayInfo];
-                setDoc(configRef, { dayTabs: updatedDayTabs }, { merge: true });
+                setDoc(configRef, { dayTabs: [...config.dayTabs, { day: nextDay, date: null }] }, { merge: true });
             } else if (target.id === 'export-btn') {
                 appFunctions.showExportModal();
             } else if (target.matches('.tab-btn')) {
@@ -427,7 +407,6 @@
                     newConfig.dayTabs = validTabs;
                     await setDoc(configRef, { dayTabs: validTabs }, { merge: true });
                 }
-                
                 config = newConfig;
                 if (viewingDay === null || (viewingDay !== 'all' && !config.dayTabs.some(d => d.day === viewingDay))) {
                     viewingDay = config.activeDay || (config.dayTabs.length > 0 ? Math.max(...config.dayTabs.map(d => d.day)) : 'all');
@@ -449,15 +428,10 @@
             if (previousOrdersMap.size > 0 && !isMuted) {
                 newOrdersMap.forEach((order, id) => {
                     const prevOrder = previousOrdersMap.get(id);
-                    if (!prevOrder) { // 신규 주문
+                    if (!prevOrder && order.isHighlighted) { // 신규 주문
                         if (newOrderSound) newOrderSound.triggerAttackRelease("C5", "8n");
-                    } else if (order.totalPrice > prevOrder.totalPrice) { // 추가 주문
+                    } else if (prevOrder && !prevOrder.isHighlighted && order.isHighlighted) { // 추가 주문
                         if (updateOrderSound) updateOrderSound.triggerAttackRelease("G5", "8n");
-                        const card = orderList.querySelector(`[data-order-id="${id}"]`);
-                        if (card) {
-                            card.classList.add('highlight-update');
-                            setTimeout(() => card.classList.remove('highlight-update'), 3000);
-                        }
                     }
                 });
             }
