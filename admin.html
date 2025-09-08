@@ -155,7 +155,15 @@
             const statusStyles = { "주문 접수 중": "border-yellow-400", "요리 중": "border-blue-400", "서빙 완료": "border-green-400", "처리 완료": "border-gray-300" };
             const statusBtnStyles = { "주문 접수 중": "bg-yellow-100 text-yellow-800", "요리 중": "bg-blue-100 text-blue-800", "서빙 완료": "bg-green-100 text-green-800", "처리 완료": "bg-gray-200 text-gray-500" };
             const highlightClass = order.isHighlighted ? 'highlight-new-order' : (statusStyles[order.status] || '');
+
+            const oldItems = order.items.filter(item => !item.isNew);
+            const newItems = order.items.filter(item => item.isNew);
+
+            const oldItemsHTML = oldItems.map(item => `<p class="flex justify-between"><span>${item.name}</span><span>x${item.quantity}</span></p>`).join('');
+            const newItemsHTML = newItems.map(item => `<p class="flex justify-between text-red-500 font-bold"><span>${item.name}</span><span>x${item.quantity}</span></p>`).join('');
             
+            const separator = oldItems.length > 0 && newItems.length > 0 ? '<hr class="my-2 border-dashed border-gray-400">' : '';
+
             return `
             <div data-order-id="${order.id}" class="bg-white rounded-xl shadow-lg p-5 flex flex-col transition-all duration-300 relative order-card border-4 ${highlightClass} ${order.status === '처리 완료' ? 'opacity-60' : ''}">
                 <div class="flex justify-between items-start mb-3">
@@ -165,7 +173,7 @@
                         <span class="order-time text-xs text-gray-500 block mt-1">${formatTimestamp(order.timestamp, true)}</span>
                     </div>
                 </div>
-                <div class="order-items border-t border-b border-gray-200 py-3 my-3 space-y-2 text-gray-700 flex-grow">${order.items.map(item => `<p class="flex justify-between"><span>${item.name}</span><span>x${item.quantity}</span></p>`).join('')}</div>
+                <div class="order-items border-t border-b border-gray-200 py-3 my-3 space-y-2 text-gray-700 flex-grow">${oldItemsHTML}${separator}${newItemsHTML}</div>
                 <div class="text-right mb-4"><span class="text-lg font-semibold">총 금액:</span><span class="total-price text-xl font-bold text-gray-900">${order.totalPrice.toLocaleString()}원</span></div>
                 <div class="status-btn-group grid grid-cols-2 gap-2 text-sm">${Object.keys(statusBtnStyles).map(status => `<button data-action="updateStatus" data-id="${order.id}" data-status="${status}" class="p-2 rounded-md font-semibold ${status === order.status ? statusBtnStyles[status] : 'bg-gray-200 hover:bg-gray-300'}">${status}</button>`).join('')}</div>
             </div>`;
@@ -304,7 +312,19 @@
                 document.getElementById('confirm-delete-btn').onclick = () => appFunctions.confirmDelete(orderId);
             },
             confirmDelete: async (orderId) => { await deleteDoc(doc(db, "orders", orderId)); hideModal(); },
-            updateStatus: async (orderId, status) => { await updateDoc(doc(db, "orders", orderId), { status: status, isHighlighted: false }); },
+            updateStatus: async (orderId, status) => {
+                const orderRef = doc(db, "orders", orderId);
+                const orderSnap = await getDoc(orderRef);
+                if(orderSnap.exists()) {
+                    const currentItems = orderSnap.data().items;
+                    const updatedItems = currentItems.map(item => ({ ...item, isNew: false }));
+                    await updateDoc(orderRef, { 
+                        status: status, 
+                        isHighlighted: false,
+                        items: updatedItems 
+                    });
+                }
+            },
             showExportModal: () => {
                 const isTotalView = viewingDay === 'all';
                 const dailyDisabled = isTotalView ? 'disabled' : '';
