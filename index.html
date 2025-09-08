@@ -19,7 +19,7 @@
 
     <div class="container mx-auto max-w-lg p-4">
         <header class="text-center my-6">
-            <h1 class="text-4xl font-bold text-indigo-600">🔥  🔥</h1>
+            <h1 class="text-4xl font-bold text-indigo-600">🔥 박준혁은 보아라 🔥</h1>
             <p class="text-gray-600 mt-2">간편하게 주문하세요!</p>
         </header>
 
@@ -108,7 +108,8 @@
                         submitOrderBtn.disabled = true;
                     }
                 } catch (error) {
-                    showAlert("네트워크 오류", "시스템 정보를 불러오는 데 실패했습니다.", 0);
+                    console.error("설정 정보 로드 오류:", error);
+                    showAlert("네트워크 또는 설정 오류", "시스템 정보를 불러오는 데 실패했습니다. 인터넷 연결 및 Firebase 보안 규칙을 확인해주세요.", 0);
                     submitOrderBtn.disabled = true;
                 }
             }
@@ -207,34 +208,24 @@
                     );
 
                     const querySnapshot = await getDocs(q);
-
+                    
                     if (!querySnapshot.empty) {
                         // --- 추가 주문 로직 ---
                         const existingOrderDoc = querySnapshot.docs[0];
                         const existingData = existingOrderDoc.data();
                         
-                        // 기존 아이템들의 isNew 상태를 false로 초기화
-                        const currentItems = existingData.items.map(item => ({ ...item, isNew: false }));
-                        let newTotalPrice = existingData.totalPrice;
+                        const newBatch = {
+                            acknowledged: false,
+                            items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price }))
+                        };
+                        
+                        const existingBatches = existingData.orderBatches || [{ acknowledged: true, items: existingData.items || [] }];
 
-                        orderedItems.forEach(newItemFromCart => {
-                            const existingItem = currentItems.find(item => item.name === newItemFromCart.name);
-                            if (existingItem) {
-                                existingItem.quantity += newItemFromCart.quantity;
-                                existingItem.isNew = true; // 수량이 추가되었으므로 새 항목으로 표시
-                            } else {
-                                currentItems.push({ 
-                                    name: newItemFromCart.name, 
-                                    quantity: newItemFromCart.quantity, 
-                                    price: newItemFromCart.price,
-                                    isNew: true // 완전히 새로운 항목
-                                });
-                            }
-                            newTotalPrice += newItemFromCart.price * newItemFromCart.quantity;
-                        });
+                        const updatedBatches = [...existingBatches, newBatch];
+                        const newTotalPrice = updatedBatches.flat().flatMap(batch => batch.items).reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
                         await updateDoc(existingOrderDoc.ref, {
-                            items: currentItems,
+                            orderBatches: updatedBatches,
                             totalPrice: newTotalPrice,
                             timestamp: new Date(),
                             isHighlighted: true
@@ -243,20 +234,19 @@
                         showAlert("추가 주문 완료!", "기존 주문에 메뉴가 추가되었습니다.", 2000);
                     } else {
                         // --- 신규 주문 로직 ---
-                        const newItems = orderedItems.map(item => ({ 
-                            name: item.name, 
-                            quantity: item.quantity, 
-                            price: item.price,
-                            isNew: true // 모든 항목을 새 항목으로 표시
-                        }));
-                        const totalPrice = newItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                        const firstBatch = {
+                            acknowledged: false,
+                            items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price }))
+                        };
+                        
+                        const totalPrice = firstBatch.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
                         const now = new Date();
                         const timeString = now.toTimeString().split(' ')[0];
                         const finalTimestamp = new Date(`${activeDayInfo.date}T${timeString}`);
 
                         await addDoc(collection(db, "orders"), {
                             tableNumber: parsedTableNumber,
-                            items: newItems,
+                            orderBatches: [firstBatch],
                             totalPrice: totalPrice,
                             status: "주문 접수 중",
                             timestamp: finalTimestamp,
@@ -267,8 +257,8 @@
                     }
                     setTimeout(() => { window.location.reload(); }, 2100);
                 } catch (e) {
-                    console.error("주문 처리 오류: ", e);
-                    showAlert("주문 실패", "주문 처리 중 오류가 발생했습니다.");
+                    console.error("주문 처리 오류 상세 정보: ", e);
+                    showAlert("주문 실패", `주문 처리 중 오류가 발생했습니다. (오류: ${e.code})`);
                     submitOrderBtn.disabled = false;
                 }
             });
@@ -276,4 +266,3 @@
     </script>
 </body>
 </html>
-
