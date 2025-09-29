@@ -141,10 +141,8 @@
     const highlightClass = order.isHighlighted ? 'highlight-new-order' : (statusStyles[order.status] || '');
 
     // 상태 변경 기록
-    const history = order.statusHistory || [];
-    const lastRecord = history.length > 0 ? history[history.length - 1] : null;
-    const lastTime = lastRecord ? new Date(lastRecord.time).toLocaleString("ko-KR") : formatTimestamp(order.timestamp);
-
+    const firstOrderTime = formatTimestamp(order.timestamp);
+          
     const historyText = history.map(h => `${h.status} - ${new Date(h.time).toLocaleString("ko-KR")}`).join("\n");
 
     const batchesHTML = (order.orderBatches || []).map((batch, index) => {
@@ -355,3 +353,4 @@
 
 
 주문 시간은 맨 처음 주문시간이 고정되게 해줘 추가주문을 하더라도 첫 주문 시간이 보이게
+
