@@ -19,8 +19,9 @@
 
     <div class="container mx-auto max-w-lg p-4">
         <header class="text-center my-6">
-            <h1 class="text-4xl font-bold text-indigo-600">🔥 융융죽겠지 🔥</h1>
-            <p class="text-gray-600 mt-2">간편하게 주문하세요!</p>
+            <h2 class="text-2xl font-bold text-red-500 tracking-wider">스마트제조융합전공 주점</h2>
+            <h1 class="text-5xl font-extrabold text-blue-600 mt-2">융융죽겠지</h1>
+            <p class="text-gray-600 mt-3">간편하게 주문하세요!</p>
         </header>
 
         <div class="bg-white p-6 rounded-xl shadow-md mb-6 fade-in">
@@ -236,7 +237,6 @@
                 const parsedTableNumber = parseInt(tableNumber);
 
                 try {
-                    // ✨✨ 수정된 로직: 기존 주문 확인 및 추가/신규 처리 ✨✨
                     const q = query(collection(db, "orders"), 
                         where("tableNumber", "==", parsedTableNumber),
                         where("festivalDay", "==", activeDayInfo.day),
@@ -247,7 +247,7 @@
                     const newItems = orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price }));
 
                     if (!querySnapshot.empty) {
-                        // --- 1. 추가 주문 로직 ---
+                        // --- 추가 주문 로직 ---
                         const existingOrderDoc = querySnapshot.docs[0];
                         const existingData = existingOrderDoc.data();
                         
@@ -264,13 +264,13 @@
                         });
                         showAlert("추가 주문 완료!", "기존 주문에 메뉴가 추가되었습니다.", 2000);
                     } else {
-                        // --- 2. 신규 주문 로직 ---
+                        // --- 신규 주문 로직 ---
                         const firstBatch = { acknowledged: false, items: newItems };
                         const totalPrice = firstBatch.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
                         await addDoc(collection(db, "orders"), {
                             tableNumber: parsedTableNumber,
-                            orderBatches: [firstBatch], // 데이터를 'orderBatches' 구조로 저장
+                            orderBatches: [firstBatch],
                             totalPrice: totalPrice,
                             status: "주문 접수 중",
                             timestamp: new Date(),
@@ -292,4 +292,3 @@
     </script>
 </body>
 </html>
-
