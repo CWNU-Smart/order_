@@ -134,16 +134,19 @@
             });
         }
         
-        // ✅✅✅ 이 함수를 수정하여 카운트가 명확히 보이도록 변경했습니다. ✅✅✅
+        // ✅✅✅ 주문 시간을 첫 주문 시간으로 고정하도록 수정 ✅✅✅
         function createOrderCardHTML(order) {
     const statusStyles = { "주문 접수 중": "border-yellow-400", "요리 중": "border-blue-400", "서빙 완료": "border-green-400", "처리 완료": "border-gray-300" };
     const statusBtnStyles = { "주문 접수 중": "bg-yellow-100 text-yellow-800", "요리 중": "bg-blue-100 text-blue-800", "서빙 완료": "bg-green-100 text-green-800", "처리 완료": "bg-gray-200 text-gray-500" };
     const highlightClass = order.isHighlighted ? 'highlight-new-order' : (statusStyles[order.status] || '');
 
     // 상태 변경 기록
-    const firstOrderTime = formatTimestamp(order.timestamp);
-          
+    const history = order.statusHistory || [];
     const historyText = history.map(h => `${h.status} - ${new Date(h.time).toLocaleString("ko-KR")}`).join("\n");
+
+    // 🌟🌟🌟 이 부분이 첫 주문 시간으로 고정되도록 변경되었습니다.
+    const firstOrderTime = formatTimestamp(order.timestamp);
+    // 🌟🌟🌟
 
     const batchesHTML = (order.orderBatches || []).map((batch, index) => {
         const itemsHTML = (batch.items || []).map(item => {
@@ -167,7 +170,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                 </button>
-                <span class="order-time text-xs text-gray-500 block mt-1">${lastTime}</span>
+                <span class="order-time text-xs text-gray-500 block mt-1">${firstOrderTime}</span>
             </div>
         </div>
         <div class="order-items border-t border-b border-gray-200 py-3 my-3 space-y-2 text-gray-700 flex-grow">${batchesHTML}</div>
@@ -176,8 +179,6 @@
     </div>`;
 }
 
-        
-        // 이하 코드는 생략 없이 동일합니다.
         
         function renderTabs() {
             const validTabs = (config.dayTabs || []).filter(d => d && typeof d.day === 'number');
@@ -350,7 +351,3 @@
     </script>
 </body>
 </html>
-
-
-주문 시간은 맨 처음 주문시간이 고정되게 해줘 추가주문을 하더라도 첫 주문 시간이 보이게
-
