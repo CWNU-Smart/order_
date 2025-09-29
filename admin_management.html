@@ -118,36 +118,36 @@
         }
         
         function createOrderCardHTML(order) {
-            const statusStyles = { "주문 접수 중": "border-yellow-400", "요리 중": "border-blue-400", "서빙 완료": "border-green-400", "처리 완료": "border-gray-300" };
-            const statusBtnStyles = { "주문 접수 중": "bg-yellow-100 text-yellow-800", "요리 중": "bg-blue-100 text-blue-800", "서빙 완료": "bg-green-100 text-green-800", "처리 완료": "bg-gray-200 text-gray-500" };
-            const highlightClass = order.isHighlighted ? 'highlight-new-order' : (statusStyles[order.status] || '');
+    const statusStyles = { "주문 접수 중": "border-yellow-400", "요리 중": "border-blue-400", "서빙 완료": "border-green-400", "처리 완료": "border-gray-300" };
+    const statusBtnStyles = { "주문 접수 중": "bg-yellow-100 text-yellow-800", "요리 중": "bg-blue-100 text-blue-800", "서빙 완료": "bg-green-100 text-green-800", "처리 완료": "bg-gray-200 text-gray-500" };
+    const highlightClass = order.isHighlighted ? 'highlight-new-order' : (statusStyles[order.status] || '');
 
-            // ✨✨ 수정된 부분: orderBatches를 순회하며 점선으로 구분 ✨✨
-            const batchesHTML = (order.orderBatches || [{items: order.items || []}]).map((batch, index) => {
-                const itemsHTML = batch.items.map(item => {
-                    const textColor = !batch.acknowledged ? 'text-red-500 font-bold' : 'text-gray-700';
-                    const displayText = item.price > 0 ? `${item.name} x${item.quantity}` : item.name;
-                    return `<p class="${textColor}">${displayText}</p>`;
-                }).join('');
-                // 첫 번째 주문 묶음 이후에는 점선 추가
-                const separator = index > 0 ? '<hr class="my-2 border-dashed border-gray-300">' : '';
-                return separator + itemsHTML;
-            }).join('');
+    // ✨ 수정된 부분: 가격이 0원이더라도 수량 표시
+    const batchesHTML = (order.orderBatches || [{items: order.items || []}]).map((batch, index) => {
+        const itemsHTML = batch.items.map(item => {
+            const textColor = !batch.acknowledged ? 'text-red-500 font-bold' : 'text-gray-700';
+            // 가격과 상관없이 항상 수량을 포함
+            const displayText = `${item.name} x${item.quantity}`;
+            return `<p class="${textColor}">${displayText}</p>`;
+        }).join('');
+        const separator = index > 0 ? '<hr class="my-2 border-dashed border-gray-300">' : '';
+        return separator + itemsHTML;
+    }).join('');
 
-            return `
-            <div data-order-id="${order.id}" class="bg-white rounded-xl shadow-lg p-5 flex flex-col transition-all duration-300 relative order-card border-4 ${highlightClass} ${order.status === '처리 완료' ? 'opacity-60' : ''}">
-                <div class="flex justify-between items-start mb-3">
-                    <h2 class="text-2xl font-bold text-indigo-600 pr-4">테이블 ${order.tableNumber}</h2>
-                    <div class="text-right flex-shrink-0">
-                        <button data-action="showDeleteModal" data-id="${order.id}" class="text-gray-400 hover:text-red-600 z-10 block ml-auto w-6 h-6"><svg class="pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button>
-                        <span class="text-xs text-gray-500 block mt-1">${formatTimestamp(order.timestamp)}</span>
-                    </div>
-                </div>
-                <div class="border-t border-b border-gray-200 py-3 my-3 space-y-2 flex-grow">${batchesHTML}</div>
-                <div class="text-right mb-4"><span class="text-lg font-semibold">총 금액: </span><span class="text-xl font-bold text-gray-900">${order.totalPrice.toLocaleString()}원</span></div>
-                <div class="grid grid-cols-2 gap-2 text-sm">${Object.keys(statusBtnStyles).map(status => `<button data-action="updateStatus" data-id="${order.id}" data-status="${status}" class="p-2 rounded-md font-semibold ${status === order.status ? statusBtnStyles[status] : 'bg-gray-200 hover:bg-gray-300'}">${status}</button>`).join('')}</div>
-            </div>`;
-        }
+    return `
+    <div data-order-id="${order.id}" class="bg-white rounded-xl shadow-lg p-5 flex flex-col transition-all duration-300 relative order-card border-4 ${highlightClass} ${order.status === '처리 완료' ? 'opacity-60' : ''}">
+        <div class="flex justify-between items-start mb-3">
+            <h2 class="text-2xl font-bold text-indigo-600 pr-4">테이블 ${order.tableNumber}</h2>
+            <div class="text-right flex-shrink-0">
+                <button data-action="showDeleteModal" data-id="${order.id}" class="text-gray-400 hover:text-red-600 z-10 block ml-auto w-6 h-6"><svg class="pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button>
+                <span class="text-xs text-gray-500 block mt-1">${formatTimestamp(order.timestamp)}</span>
+            </div>
+        </div>
+        <div class="border-t border-b border-gray-200 py-3 my-3 space-y-2 flex-grow">${batchesHTML}</div>
+        <div class="text-right mb-4"><span class="text-lg font-semibold">총 금액: </span><span class="text-xl font-bold text-gray-900">${order.totalPrice.toLocaleString()}원</span></div>
+        <div class="grid grid-cols-2 gap-2 text-sm">${Object.keys(statusBtnStyles).map(status => `<button data-action="updateStatus" data-id="${order.id}" data-status="${status}" class="p-2 rounded-md font-semibold ${status === order.status ? statusBtnStyles[status] : 'bg-gray-200 hover:bg-gray-300'}">${status}</button>`).join('')}</div>
+    </div>`;
+}
         
         // ... (이하 renderTabs, showModal, hideModal 함수는 이전과 동일)
         function renderTabs(){const validTabs=(config.dayTabs||[]).filter(d=>d&&typeof d.day=='number');const tabsHTML=validTabs.sort((a,b)=>a.day-b.day).map(dayInfo=>`
@@ -250,3 +250,4 @@
     </script>
 </body>
 </html>
+
