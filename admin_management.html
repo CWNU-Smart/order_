@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>주문 관리 dd대시보드</title>
+    <title>주문 관리 대시보드</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- 엑셀 라이브러리 추가 -->
@@ -26,8 +26,11 @@
 
     <!-- 사운드 재생을 위한 숨겨진 오디오 요소 -->
     <!-- 중요: 아래 src 경로는 실제 음원 파일이 업로드된 URL로 변경해야 합니다. -->
+    <!-- 예: https://your-github-username.github.io/your-repo/sounds/new-order.mp3 -->
     <audio id="new-order-sound" src="YOUR_NEW_ORDER_SOUND_URL_HERE" preload="auto"></audio>
     <audio id="additional-order-sound" src="YOUR_ADDITIONAL_ORDER_SOUND_URL_HERE" preload="auto"></audio>
+    <audio id="new-order-sound" src="https://github.com/CWNU-Smart/order_/raw/refs/heads/main/ordersound.m4a" preload="auto"></audio>
+    <audio id="additional-order-sound" src="https://github.com/CWNU-Smart/order_/raw/refs/heads/main/ordersound.m4a" preload="auto"></audio>
 
     <div class="container mx-auto p-4 sm:p-6 lg:p-8">
         <header class="text-center my-6 relative">
@@ -51,15 +54,15 @@
         import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, orderBy, getDocs, setDoc, writeBatch, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
- 		apiKey: "AIzaSyAWzxJrQROhzSnVJCmTEUDfpYn-TJqHbHQ",
- 		authDomain: "order-4f8a2.firebaseapp.com",
- 		projectId: "order-4f8a2",
- 		storageBucket: "order-4f8a2.appspot.com",
- 		messagingSenderId: "69210404028",
- 		appId: "1:69210404028:web:25fe58abbcbff4d1e9ccb9",
- 		measurementId: "G-JBK15C76HS"
-		};
-        
+  		apiKey: "AIzaSyAMS_URZ1lFsbyJscsIjPvgENZouSbnX0A",
+  		authDomain: "order-cfe51.firebaseapp.com",
+  		projectId: "order-cfe51",
+  		storageBucket: "order-cfe51.firebasestorage.app",
+  		messagingSenderId: "1047726700523",
+  		appId: "1:1047726700523:web:0360158e7baca0d3450bae",
+ 		measurementId: "G-45K52YE0BB"
+			};
+
         if (!firebaseConfig.projectId || firebaseConfig.projectId === "YOUR_PROJECT_ID") {
             document.body.innerHTML = `<div class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
                 <div class="p-8 text-center bg-white border-4 border-dashed border-red-300 rounded-lg shadow-lg max-w-2xl">
@@ -76,7 +79,7 @@
             </div>`;
             throw new Error("Firebase configuration is missing.");
         }
-        
+
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
@@ -87,7 +90,7 @@
         let viewingDay = 'all';
         let previousOrdersMap = new Map();
         let isMuted = false;
-        
+
         const configRef = doc(db, "festivalConfig", "settings");
         const dayTabsContainer = document.getElementById('day-tabs-container');
         const summarySection = document.getElementById('summary-section');
@@ -96,7 +99,7 @@
         const soundToggleBtn = document.getElementById('sound-toggle-btn');
         const newOrderAudio = document.getElementById('new-order-sound');
         const additionalOrderAudio = document.getElementById('additional-order-sound');
-        
+
         const soundOnIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>`;
         const soundOffIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l-2-2m0 0l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
 
@@ -116,14 +119,12 @@
         function renderDashboard() {
             const isTotalView = viewingDay === 'all';
             const ordersToDisplay = isTotalView ? allOrders : allOrders.filter(order => order.festivalDay === viewingDay);
-            
+
             let totalRevenue = 0;
             const menuSales = {};
             ordersToDisplay.forEach(order => { totalRevenue += order.totalPrice; });
-            
-            const allItems = ordersToDisplay.flatMap(order => 
-                order.orderBatches ? order.orderBatches.flatMap(batch => batch.items) : (order.items || [])
-            );
+
+            const allItems = ordersToDisplay.flatMap(order => order.orderBatches.flatMap(batch => batch.items));
             allItems.forEach(item => { menuSales[item.name] = (menuSales[item.name] || 0) + item.quantity; });
 
 
@@ -134,25 +135,25 @@
                 </div>
                 <div class="bg-white p-6 rounded-xl shadow-lg summary-card">
                     <h2 class="text-xl font-bold text-gray-700 mb-2">${isTotalView ? '전체 메뉴별 판매량' : '일일 메뉴별 판매량'}</h2>
-                    <div class="space-y-2 text-gray-800">${Object.keys(menuSales).length > 0 ? Object.entries(menuSales).sort(([,a],[,b]) => b-a).map(([name, q]) => `<p class="flex justify-between font-medium"><span>${name}</span><span>${q}개</span></p>`).join('') : '<p class="text-gray-500">주문이 없습니다.</p>'}</div>
+                    <div class="space-y-2 text-gray-800">${Object.keys(menuSales).length > 0 ? Object.entries(menuSales).sort(([,a],[,b]) => b-a).map(([name, q]) => `<p class="flex justify-between font-medium"><span>${name}</span><span>${q}개</span></p>`).join('') : '<p class="text-gray-500">해당 일차의 주문이 없습니다.</p>'}</div>
                 </div>`;
 
             orderList.innerHTML = '';
-            ordersToDisplay.sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
+            const statusPriority = { "주문 접수 중": 1, "요리 중": 2, "서빙 완료": 3, "처리 완료": 4 };
+            ordersToDisplay.sort((a, b) => (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99));
             ordersToDisplay.forEach(order => {
                 const cardWrapper = document.createElement('div');
                 cardWrapper.innerHTML = createOrderCardHTML(order).trim();
                 orderList.appendChild(cardWrapper.firstChild);
             });
         }
-        
+
         function createOrderCardHTML(order) {
             const statusStyles = { "주문 접수 중": "border-yellow-400", "요리 중": "border-blue-400", "서빙 완료": "border-green-400", "처리 완료": "border-gray-300" };
             const statusBtnStyles = { "주문 접수 중": "bg-yellow-100 text-yellow-800", "요리 중": "bg-blue-100 text-blue-800", "서빙 완료": "bg-green-100 text-green-800", "처리 완료": "bg-gray-200 text-gray-500" };
             const highlightClass = order.isHighlighted ? 'highlight-new-order' : (statusStyles[order.status] || '');
 
-            const batches = order.orderBatches || [{ acknowledged: true, items: order.items || [] }];
-            const batchesHTML = batches.map((batch, index) => {
+            const batchesHTML = (order.orderBatches || []).map((batch, index) => {
                 const itemsHTML = batch.items.map(item => {
                     const textColor = !batch.acknowledged ? 'text-red-500 font-bold' : 'text-gray-700';
                     return `<p class="flex justify-between ${textColor}"><span>${item.name}</span><span>x${item.quantity}</span></p>`;
@@ -178,7 +179,7 @@
 
         function renderTabs() {
             const validTabs = config.dayTabs.filter(d => d && typeof d.day === 'number');
-            
+
             const tabsHTML = validTabs.sort((a, b) => a.day - b.day).map(dayInfo => {
                 return `
                 <div class="relative group">
@@ -294,7 +295,7 @@
                     if (config.activeDay === dayToDelete) newActiveDay = renumberedTabs.length > 0 ? Math.max(...renumberedTabs.map(d => d.day)) : null;
                     else if (renumberMap.has(config.activeDay)) newActiveDay = renumberMap.get(config.activeDay);
                     if (viewingDay === dayToDelete || renumberMap.has(viewingDay)) viewingDay = newActiveDay || 'all';
-                    
+
                     batch.set(configRef, { dayTabs: renumberedTabs, activeDay: newActiveDay });
                     await batch.commit();
                     hideModal();
@@ -313,9 +314,7 @@
                 const orderRef = doc(db, "orders", orderId);
                 const orderSnap = await getDoc(orderRef);
                 if(orderSnap.exists()) {
-                    const orderData = orderSnap.data();
-                    const batches = orderData.orderBatches || [{ acknowledged: true, items: orderData.items || [] }];
-                    const updatedBatches = batches.map(batch => ({ ...batch, acknowledged: true }));
+                    const updatedBatches = orderSnap.data().orderBatches.map(batch => ({ ...batch, acknowledged: true }));
                     await updateDoc(orderRef, { 
                         status: status, 
                         isHighlighted: false,
@@ -362,7 +361,7 @@
                 if (document.getElementById('export-orders')?.checked) {
                     const isTotalView = viewingDay === 'all';
                     const ordersToExport = isTotalView ? allOrders : allOrders.filter(order => order.festivalDay === viewingDay);
-                    const data = ordersToExport.map(order => ({'주문시간': formatTimestamp(order.timestamp, true),'일차': order.festivalDay,'테이블': order.tableNumber,'메뉴': (order.orderBatches || [{items: order.items || []}]).flatMap(b => b.items).map(item => `${item.name} x${item.quantity}`).join(', '),'총금액': order.totalPrice,'상태': order.status}));
+                    const data = ordersToExport.map(order => ({'주문시간': formatTimestamp(order.timestamp, true),'일차': order.festivalDay,'테이블': order.tableNumber,'메뉴': order.orderBatches.flatMap(b => b.items).map(item => `${item.name} x${item.quantity}`).join(', '),'총금액': order.totalPrice,'상태': order.status}));
                     const ws = XLSX.utils.json_to_sheet(data);
                     XLSX.utils.book_append_sheet(wb, ws, `${isTotalView ? '전체' : viewingDay + '일차'} 주문내역`);
                     sheetsAdded++;
@@ -374,17 +373,15 @@
             },
             hideModal: hideModal
         };
-        
+
         function calculateSales(orders) {
             let totalRevenue = 0;
             const menuSales = {};
-            const allItems = orders.flatMap(order => 
-                order.orderBatches ? order.orderBatches.flatMap(batch => batch.items) : (order.items || [])
-            );
+            const allItems = orders.flatMap(order => order.orderBatches.flatMap(batch => batch.items));
             allItems.forEach(item => {
                 menuSales[item.name] = (menuSales[item.name] || 0) + item.quantity;
+                totalRevenue += item.price * item.quantity;
             });
-            totalRevenue = allItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             return { totalRevenue, menuSales };
         }
 
@@ -421,14 +418,14 @@
 
         onSnapshot(configRef, async (docSnap) => {
             if (docSnap.exists()) {
-                let newConfig = { dayTabs: [], activeDay: 1, ...docSnap.data() };
+                const newConfig = { dayTabs: [], activeDay: 1, ...docSnap.data() };
                 const validTabs = newConfig.dayTabs.filter(d => d && typeof d.day === 'number');
                 if(validTabs.length !== newConfig.dayTabs.length) {
                     console.warn("잘못된 탭 데이터를 감지하여 정리합니다.");
                     newConfig.dayTabs = validTabs;
                     await setDoc(configRef, { dayTabs: validTabs }, { merge: true });
                 }
-                
+
                 config = newConfig;
                 if (viewingDay === null || (viewingDay !== 'all' && !config.dayTabs.some(d => d.day === viewingDay))) {
                     viewingDay = config.activeDay || (config.dayTabs.length > 0 ? Math.max(...config.dayTabs.map(d => d.day)) : 'all');
@@ -443,31 +440,21 @@
             renderDashboard();
         });
 
-        onSnapshot(query(collection(db, "orders")), (snapshot) => {
+        onSnapshot(query(collection(db, "orders"), orderBy("timestamp", "desc")), (snapshot) => {
             const newOrdersMap = new Map();
-            snapshot.docs.forEach(doc => {
-                let orderData = { id: doc.id, ...doc.data() };
-                // 데이터 구조 안정화 로직
-                if (!orderData.orderBatches && orderData.items) {
-                    orderData.orderBatches = [{ acknowledged: true, items: orderData.items }];
-                }
-                newOrdersMap.set(doc.id, orderData);
-            });
-            
+            snapshot.docs.forEach(doc => newOrdersMap.set(doc.id, { id: doc.id, ...doc.data() }));
+
             if (previousOrdersMap.size > 0 && !isMuted) {
                 newOrdersMap.forEach((order, id) => {
                     const prevOrder = previousOrdersMap.get(id);
-                    if (order.isHighlighted && (!prevOrder || !prevOrder.isHighlighted)) {
-                        const isNewOrder = !prevOrder;
-                        if (isNewOrder) {
-                            newOrderAudio.play().catch(e => console.log("사운드 재생 실패:", e));
-                        } else {
-                            additionalOrderAudio.play().catch(e => console.log("사운드 재생 실패:", e));
-                        }
+                    if (!prevOrder && order.isHighlighted) { // 신규 주문
+                        newOrderAudio.play().catch(e => console.log("사운드 재생 오류:", e));
+                    } else if (prevOrder && !prevOrder.isHighlighted && order.isHighlighted) { // 추가 주문
+                        additionalOrderAudio.play().catch(e => console.log("사운드 재생 오류:", e));
                     }
                 });
             }
-            
+
             allOrders = Array.from(newOrdersMap.values());
             previousOrdersMap = new Map(newOrdersMap);
             renderDashboard();
@@ -475,4 +462,3 @@
     </script>
 </body>
 </html>
-
