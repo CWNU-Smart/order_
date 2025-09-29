@@ -166,7 +166,7 @@
     return `
     <div data-order-id="${order.id}" class="bg-white rounded-xl shadow-lg p-5 flex flex-col transition-all duration-300 relative order-card border-4 ${highlightClass} ${order.status === '처리 완료' ? 'opacity-60' : ''}">
         <div class="flex justify-between items-start mb-3">
-            <h2 class="text-2xl font-bold text-indigo-500 pr-4">테이블 <span class="table-number">${order.tableNumber}</span></h2>
+            <h2 class="text-1xl font-bold text-indigo-500 pr-4">테이블 <span class="table-number">${order.tableNumber}</span></h2>
             <div class="text-right flex-shrink-0" title="${historyText}">
                 <button data-action="showDeleteModal" data-id="${order.id}" class="text-gray-400 hover:text-red-600 z-10 block ml-auto w-6 h-6">
                     <svg class="pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -356,5 +356,6 @@
     </script>
 </body>
 </html>
+
 
 
