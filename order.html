@@ -19,7 +19,28 @@
 
     <div class="container mx-auto max-w-lg p-4">
         <header class="text-center my-6">
-            <h1 class="text-4xl font-bold text-indigo-600">🔥 d 🔥</h1>
+            <h1 class="text-4xl font-bold text-indigo-600">🔥 융융죽겠지<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>축제 부스 주문하기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div class="container mx-auto max-w-lg p-4">
+        <header class="text-center my-6">
+            <h1 class="text-4xl font-bold text-indigo-600">🔥 융융죽겠지 🔥</h1>
             <p class="text-gray-600 mt-2">간편하게 주문하세요!</p>
         </header>
 
@@ -118,7 +139,7 @@
             // --- ✅ 새로운 메뉴 데이터 (자릿세 추가) ---
             const menuData = [
                 {
-                    category: '🎟️ 자릿세',
+                    category: '🪑 자릿세',
                     items: [
                         { id: 'seat-charge', name: '1인', price: 3000 },
                     ]
@@ -126,30 +147,24 @@
                 {
                     category: '🍗 치킨류',
                     items: [
-                        { id: 'fried-chicken', name: '후라이드치킨 (500g)', price: 14900 },
-                        { id: 'yangnyeom-chicken', name: '양념치킨 (500g)', price: 15900 },
-                        { id: 'supreme-yangnyeom-chicken', name: '슈프림양념치킨 (500g)', price: 16900 },
+                        { id: 'fried-chicken', name: '스제치킨(순살)', price: 16,900 },
+                        { id: 'yangnyeom-chicken', name: '양념치킨(순살)', price: 17,900 },
+                        { id: 'supreme-yangnyeom-chicken', name: '뿌링클치킨(순살)', price: 17,900 },
                     ]
                 },
                 {
-                    category: '🍟 세트',
+                    category: '🍟 사이드',
                     items: [
-                        { id: 'fried-set', name: '후라이드치킨 (500g) + 감자튀김 (150g)', price: 19900 },
-                        { id: 'ppuring-set', name: '뿌링클치킨 (500g) + 감자튀김 (150g)', price: 20900 },
-                        { id: 'supreme-set', name: '슈프림치킨 (500g) + 감자튀김 (150g)', price: 21900 },
-                    ]
-                },
-                {
-                    category: '🍤 사이드',
-                    items: [
-                        { id: 'fries', name: '감자튀김 (150g)', price: 6900 },
-                        { id: 'takoyaki', name: '타코야끼 (8알)', price: 7900 },
-                        { id: 'hwachae', name: '화채', price: 7900 },
-                        { id: 'honey-garlic-fries', name: '허니갈릭감자 (150g)', price: 8900 },
-                        { id: 'buldak-noodle', name: '불닭볶음면', price: 3000 },
-                        { id: 'coke-zero', name: '코카제로', price: 2000 },
-                        { id: 'pepsi-zero', name: '펩시제로', price: 2000 },
-                        { id: 'water', name: '물', price: 1000 },
+                        { id: 'takoyaki', name: '타코야끼', price: 7,900 },
+                        { id: 'hwachae', name: '화채', price: 7,900 },
+						{ id: 'sysoning-fries', name: '시즈닝 감자튀김', price: 7,900 },
+                        { id: 'fries', name: '감자튀김', price: 6,900 },
+                        { id: 'buldak-noodle', name: '불닭볶음면(2ea)', price: 6,500 },
+                        { id: 'pepsi', name: '펩시', price: 2,000 },
+                        { id: 'pepsi-zero', name: '펩시제로', price: 2,000 },
+                        { id: 'water', name: '물', price: 1,000 },
+						{ id: 'employee', name: '직원 호출'},
+						{ id: 'snack', name: '과자 리필'}						
                     ]
                 }
             ];
@@ -308,3 +323,4 @@
     </script>
 </body>
 </html>
+
