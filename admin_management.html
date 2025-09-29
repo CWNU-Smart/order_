@@ -13,6 +13,8 @@
         .tab-btn.view-active { background-color: #4f46e5; color: white; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         .summary-card, .order-card { animation: fadeIn 0.5s ease-in-out; }
+
+        /* 신규/추가 주문 알림 테두리 */
         .highlight-new-order {
             border-width: 4px;
             border-color: #ef4444; /* red-500 */
@@ -21,8 +23,8 @@
 </head>
 <body class="bg-gray-100">
 
-    <audio id="new-order-sound" src="https://github.com/CWNU-Smart/order_/raw/refs/heads/main/ta-da_yrvBrlS.mp3" preload="auto"></audio>
-    <audio id="additional-order-sound" src="https://github.com/CWNU-Smart/order_/raw/refs/heads/main/ta-da_yrvBrlS.mp3" preload="auto"></audio>
+    <audio id="new-order-sound" src="https://cwnu-smart.github.io/order_/baedalyi-minjog.mp3" preload="auto"></audio>
+    <audio id="additional-order-sound" src="https://cwnu-smart.github.io/order_/baedalyi-minjog.mp3" preload="auto"></audio>
 
     <div class="container mx-auto p-4 sm:p-6 lg:p-8">
         <header class="text-center my-6 relative">
@@ -40,7 +42,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, query, onSnapshot, doc, updateDoc, deleteDoc, getDoc, setDoc, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, query, onSnapshot, doc, updateDoc, deleteDoc, getDoc, setDoc, writeBatch, getDocs, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAMS_URZ1lFsbyJscsIjPvgENZouSbnX0A",
@@ -51,23 +53,23 @@
             appId: "1:1047726700523:web:0360158e7baca0d3450bae",
             measurementId: "G-45K52YE0BB"
         };
-
+        
         if (!firebaseConfig.projectId || firebaseConfig.projectId === "YOUR_PROJECT_ID") {
             document.body.innerHTML = `<div class="p-8 text-center bg-white"><h1 class="text-3xl font-bold text-red-600">Firebase 설정 오류</h1></div>`;
             throw new Error("Firebase configuration is missing.");
         }
-
+        
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        const DELETE_PASSWORD = "11531153"; 
+        const DELETE_PASSWORD = "11531153";
 
         let allOrders = [];
         let config = { dayTabs: [], activeDay: null };
         let viewingDay = 'all';
         let previousOrdersMap = new Map();
         let isMuted = false;
-
+        
         const configRef = doc(db, "festivalConfig", "settings");
         const dayTabsContainer = document.getElementById('day-tabs-container');
         const summarySection = document.getElementById('summary-section');
@@ -76,7 +78,7 @@
         const soundToggleBtn = document.getElementById('sound-toggle-btn');
         const newOrderAudio = document.getElementById('new-order-sound');
         const additionalOrderAudio = document.getElementById('additional-order-sound');
-
+        
         const soundOnIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>`;
         const soundOffIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l-2-2m0 0l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
 
@@ -95,24 +97,28 @@
             const day = String(date.getDate()).padStart(2, '0');
             const hours = String(date.getHours()).padStart(2, '0');
             const minutes = String(date.getMinutes()).padStart(2, '0');
-            const seconds = String(date.getSeconds()).padStart(2, '0');
-            return `${year}년 ${month}월 ${day}일 ${hours}시 ${minutes}분 ${seconds}초`;
+            return `${year}년 ${month}월 ${day}일 ${hours}시 ${minutes}분`;
         };
+        
+        function calculateSales(orders) {
+            let totalRevenue = 0;
+            const menuSales = {};
+            const allItems = orders.flatMap(order => 
+                (order.orderBatches || []).flatMap(batch => batch.items)
+            );
+            allItems.forEach(item => {
+                const quantity = item.quantity || 1;
+                menuSales[item.name] = (menuSales[item.name] || 0) + quantity;
+            });
+            totalRevenue = allItems.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
+            return { totalRevenue, menuSales };
+        }
 
         function renderDashboard() {
             const isTotalView = viewingDay === 'all';
             const ordersToDisplay = isTotalView ? allOrders : allOrders.filter(order => order.festivalDay === viewingDay);
-
-            let totalRevenue = 0;
-            const menuSales = {};
-            ordersToDisplay.forEach(order => { totalRevenue += order.totalPrice; });
-
-            const allItems = ordersToDisplay.flatMap(order => (order.orderBatches || []).flatMap(batch => batch.items));
-            allItems.forEach(item => {
-                // 수량이 없는 경우(오류 데이터)를 대비해 기본값 1로 설정
-                const quantity = item.quantity || 1;
-                menuSales[item.name] = (menuSales[item.name] || 0) + quantity;
-            });
+            
+            const { totalRevenue, menuSales } = calculateSales(ordersToDisplay);
 
             summarySection.innerHTML = `
                 <div class="bg-white p-6 rounded-xl shadow-lg summary-card">
@@ -125,61 +131,51 @@
                 </div>`;
 
             orderList.innerHTML = '';
-            const statusPriority = { "주문 접수 중": 1, "요리 중": 2, "서빙 완료": 3, "처리 완료": 4 };
-            ordersToDisplay.sort((a, b) => (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99) || b.timestamp.seconds - a.timestamp.seconds);
+            ordersToDisplay.sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
             ordersToDisplay.forEach(order => {
                 const cardWrapper = document.createElement('div');
                 cardWrapper.innerHTML = createOrderCardHTML(order).trim();
                 orderList.appendChild(cardWrapper.firstChild);
             });
         }
-
-        // ✅✅✅ 이 함수를 수정하여 카운트가 명확히 보이도록 변경했습니다. ✅✅✅
+        
         function createOrderCardHTML(order) {
-    const statusStyles = { "주문 접수 중": "border-yellow-400", "요리 중": "border-blue-400", "서빙 완료": "border-green-400", "처리 완료": "border-gray-300" };
-    const statusBtnStyles = { "주문 접수 중": "bg-yellow-100 text-yellow-800", "요리 중": "bg-blue-100 text-blue-800", "서빙 완료": "bg-green-100 text-green-800", "처리 완료": "bg-gray-200 text-gray-500" };
-    const highlightClass = order.isHighlighted ? 'highlight-new-order' : (statusStyles[order.status] || '');
+            const statusStyles = { "주문 접수 중": "border-yellow-400", "요리 중": "border-blue-400", "서빙 완료": "border-green-400", "처리 완료": "border-gray-300" };
+            const statusBtnStyles = { "주문 접수 중": "bg-yellow-100 text-yellow-800", "요리 중": "bg-blue-100 text-blue-800", "서빙 완료": "bg-green-100 text-green-800", "처리 완료": "bg-gray-200 text-gray-500" };
+            const highlightClass = order.isHighlighted ? 'highlight-new-order' : (statusStyles[order.status] || '');
+            const history = order.statusHistory || [];
+            const lastRecord = history.length > 0 ? history[history.length - 1] : null;
+            const lastTime = lastRecord ? new Date(lastRecord.time).toLocaleString("ko-KR") : formatTimestamp(order.timestamp);
+            const historyText = history.map(h => `${h.status} - ${new Date(h.time).toLocaleString("ko-KR")}`).join("\n");
 
-    // 상태 변경 기록
-    const history = order.statusHistory || [];
-    const lastRecord = history.length > 0 ? history[history.length - 1] : null;
-    const lastTime = lastRecord ? new Date(lastRecord.time).toLocaleString("ko-KR") : formatTimestamp(order.timestamp);
+            const batchesHTML = (order.orderBatches || []).map((batch, index) => {
+                const itemsHTML = (batch.items || []).map(item => {
+                    const textColor = !batch.acknowledged ? 'text-red-500 font-bold' : 'text-gray-700';
+                    const quantityText = `x${item.quantity || 1}`;
+                    return `<p class="flex justify-between ${textColor}"><span>${item.name} ${quantityText}</span></p>`;
+                }).join('');
+                const separator = index > 0 ? '<hr class="my-2 border-dashed border-gray-400">' : '';
+                return separator + itemsHTML;
+            }).join('');
 
-    const historyText = history.map(h => `${h.status} - ${new Date(h.time).toLocaleString("ko-KR")}`).join("\n");
-
-    const batchesHTML = (order.orderBatches || []).map((batch, index) => {
-        const itemsHTML = (batch.items || []).map(item => {
-            const textColor = !batch.acknowledged ? 'text-red-500 font-bold' : 'text-gray-700';
-            const quantityText = `x${item.quantity || 1}`;
-            return `<p class="flex justify-between ${textColor}">
-                        <span>${item.name} ${quantityText}</span>
-                    </p>`;
-        }).join('');
-        const separator = index > 0 ? '<hr class="my-2 border-dashed border-gray-400">' : '';
-        return separator + itemsHTML;
-    }).join('');
-
-    return `
-    <div data-order-id="${order.id}" class="bg-white rounded-xl shadow-lg p-5 flex flex-col transition-all duration-300 relative order-card border-4 ${highlightClass} ${order.status === '처리 완료' ? 'opacity-60' : ''}">
-        <div class="flex justify-between items-start mb-3">
-            <h2 class="text-2xl font-bold text-indigo-500 pr-4">테이블 <span class="table-number">${order.tableNumber}</span></h2>
-            <div class="text-right flex-shrink-0" title="${historyText}">
-                <button data-action="showDeleteModal" data-id="${order.id}" class="text-gray-400 hover:text-red-600 z-10 block ml-auto w-6 h-6">
-                    <svg class="pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </button>
-                <span class="order-time text-xs text-gray-500 block mt-1">${lastTime}</span>
-            </div>
-        </div>
-        <div class="order-items border-t border-b border-gray-200 py-3 my-3 space-y-2 text-gray-700 flex-grow">${batchesHTML}</div>
-        <div class="text-right mb-4"><span class="text-lg font-semibold">총 금액: </span><span class="total-price text-xl font-bold text-gray-900">${order.totalPrice.toLocaleString()}원</span></div>
-        <div class="status-btn-group grid grid-cols-2 gap-2 text-sm">${Object.keys(statusBtnStyles).map(status => `<button data-action="updateStatus" data-id="${order.id}" data-status="${status}" class="p-2 rounded-md font-semibold ${status === order.status ? statusBtnStyles[status] : 'bg-gray-200 hover:bg-gray-300'}">${status}</button>`).join('')}</div>
-    </div>`;
-}
-
-
-        // 이하 코드는 생략 없이 동일합니다.
+            return `
+            <div data-order-id="${order.id}" class="bg-white rounded-xl shadow-lg p-5 flex flex-col transition-all duration-300 relative order-card border-4 ${highlightClass} ${order.status === '처리 완료' ? 'opacity-60' : ''}">
+                <div class="flex justify-between items-start mb-3">
+                    <h2 class="text-2xl font-bold text-indigo-500 pr-4">테이블 <span class="table-number">${order.tableNumber}</span></h2>
+                    <div class="text-right flex-shrink-0" title="${historyText}">
+                        <button data-action="showDeleteModal" data-id="${order.id}" class="text-gray-400 hover:text-red-600 z-10 block ml-auto w-6 h-6">
+                            <svg class="pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </button>
+                        <span class="order-time text-xs text-gray-500 block mt-1">${lastTime}</span>
+                    </div>
+                </div>
+                <div class="order-items border-t border-b border-gray-200 py-3 my-3 space-y-2 text-gray-700 flex-grow">${batchesHTML}</div>
+                <div class="text-right mb-4"><span class="text-lg font-semibold">총 금액: </span><span class="total-price text-xl font-bold text-gray-900">${order.totalPrice.toLocaleString()}원</span></div>
+                <div class="status-btn-group grid grid-cols-2 gap-2 text-sm">${Object.keys(statusBtnStyles).map(status => `<button data-action="updateStatus" data-id="${order.id}" data-status="${status}" class="p-2 rounded-md font-semibold ${status === order.status ? statusBtnStyles[status] : 'bg-gray-200 hover:bg-gray-300'}">${status}</button>`).join('')}</div>
+            </div>`;
+        }
 
         function renderTabs() {
             const validTabs = (config.dayTabs || []).filter(d => d && typeof d.day === 'number');
@@ -234,21 +230,45 @@
                 showModal(`<div class="bg-white p-8 rounded-xl shadow-2xl text-center w-full max-w-sm"><h2 class="text-xl font-bold text-red-600 mb-4">${day}일차 삭제</h2><p class="text-gray-600 mb-4">삭제하려면 비밀번호를 입력하세요. 해당 일차의 모든 주문 내역이 영구적으로 삭제됩니다.</p><input id="password-input" type="password" class="w-full p-2 border rounded-md mb-4" placeholder="비밀번호"><div class="flex justify-center space-x-4"><button data-action="hideModal" class="px-6 py-2 bg-gray-300 rounded-lg">취소</button><button id="confirm-delete-day-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg">삭제 확인</button></div></div>`);
                 document.getElementById('confirm-delete-day-btn').onclick = () => appFunctions.confirmDeleteDay(day);
             },
+            // ✅ 일차 삭제 로직 수정
             confirmDeleteDay: async (dayToDelete) => {
                 const password = document.getElementById('password-input').value;
-                if (password !== DELETE_PASSWORD) { alert('비밀번호가 틀렸습니다.'); return; }
+                if (password !== DELETE_PASSWORD) {
+                    alert('비밀번호가 틀렸습니다.');
+                    return;
+                }
                 if (!confirm(`정말로 ${dayToDelete}일차의 모든 데이터를 영구적으로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return;
+                
+                hideModal(); // 모달 먼저 닫기
+
                 try {
                     const batch = writeBatch(db);
+                    
+                    // 해당 일차의 모든 주문 문서를 삭제 목록에 추가
                     const ordersToDeleteQuery = query(collection(db, "orders"), where("festivalDay", "==", dayToDelete));
                     const ordersToDeleteSnapshot = await getDocs(ordersToDeleteQuery);
                     ordersToDeleteSnapshot.forEach(doc => batch.delete(doc.ref));
+                    
+                    // 설정에서 해당 일차 탭 정보 제거
                     const updatedTabs = config.dayTabs.filter(d => d.day !== dayToDelete);
-                    batch.set(configRef, { dayTabs: updatedTabs, activeDay: config.activeDay === dayToDelete ? null : config.activeDay }, { merge: true });
+                    let newActiveDay = config.activeDay;
+                    if (config.activeDay === dayToDelete) {
+                        newActiveDay = null; // 활성 일차였다면 비활성화
+                    }
+                    
+                    batch.set(configRef, { 
+                        dayTabs: updatedTabs, 
+                        activeDay: newActiveDay 
+                    }, { merge: true });
+                    
                     await batch.commit();
-                    hideModal();
+                    
                     alert(`${dayToDelete}일차 데이터가 성공적으로 삭제되었습니다.`);
-                } catch (error) { console.error("일차 삭제 중 오류 발생:", error); alert("데이터 삭제 중 오류가 발생했습니다."); }
+                    // onSnapshot이 자동으로 화면을 갱신하므로 수동 갱신 불필요
+                } catch (error) { 
+                    console.error("일차 삭제 중 오류 발생:", error); 
+                    alert("데이터 삭제 중 오류가 발생했습니다: " + error.message); 
+                }
             },
             showDeleteModal: (orderId) => {
                 showModal(`<div class="bg-white p-8 rounded-xl shadow-2xl text-center w-full max-w-sm"><h2 class="text-xl font-bold text-red-600 mb-4">정말로 삭제하시겠습니까?</h2><p class="text-gray-700 mb-6">이 주문 내역은 영구적으로 삭제됩니다.</p><div class="flex justify-center space-x-4"><button data-action="hideModal" class="px-6 py-2 bg-gray-300 rounded-lg">취소</button><button id="confirm-delete-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg">삭제</button></div></div>`);
@@ -256,35 +276,141 @@
             },
             confirmDelete: async (orderId) => { await deleteDoc(doc(db, "orders", orderId)); hideModal(); },
             updateStatus: async (orderId, status) => {
-    const orderRef = doc(db, "orders", orderId);
-    const orderSnap = await getDoc(orderRef);
-    let statusHistory = [];
+                const orderRef = doc(db, "orders", orderId);
+                const orderSnap = await getDoc(orderRef);
+                let statusHistory = [];
 
-    if(orderSnap.exists()) {
-        const data = orderSnap.data();
-        statusHistory = data.statusHistory || [];
-        statusHistory.push({
-            status,
-            time: new Date().toISOString()
-        });
+                if(orderSnap.exists()) {
+                    const data = orderSnap.data();
+                    statusHistory = data.statusHistory || [];
+                    statusHistory.push({
+                        status,
+                        time: new Date().toISOString()
+                    });
 
-        const updateData = { 
-            status: status, 
-            isHighlighted: false, 
-            statusHistory 
-        };
+                    const updateData = { 
+                        status: status, 
+                        isHighlighted: false, 
+                        statusHistory 
+                    };
 
-        // '주문 접수 중'이 아닌 경우에는 배치도 확인 처리
-        if(status !== '주문 접수 중') {
-            const updatedBatches = (data.orderBatches || []).map(batch => ({
-                ...batch, 
-                acknowledged: true 
-            }));
-            updateData.orderBatches = updatedBatches;
-        }
-        await updateDoc(orderRef, updateData);
-    }
-},
+                    if(status !== '주문 접수 중') {
+                        const updatedBatches = (data.orderBatches || []).map(batch => ({ ...batch, acknowledged: true }));
+                        updateData.orderBatches = updatedBatches;
+                    }
+                    await updateDoc(orderRef, updateData);
+                }
+            },
+            showExportModal: () => {
+                const isTotalView = viewingDay === 'all';
+                const dayLabel = isTotalView ? '전체' : `${viewingDay}일차`;
+                showModal(`
+                    <div class="bg-white p-8 rounded-xl shadow-2xl text-center w-full max-w-sm">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">${dayLabel} 데이터 엑셀 내보내기</h2>
+                        <div class="text-left space-y-3 mb-6">
+                            <label class="flex items-center space-x-3">
+                                <input type="checkbox" id="export-orders" class="form-checkbox h-5 w-5 text-indigo-600 rounded" checked>
+                                <span class="text-gray-700 font-medium">${dayLabel} 주문 내역 상세</span>
+                            </label>
+                            <label class="flex items-center space-x-3 ${isTotalView ? 'opacity-50' : ''}">
+                                <input type="checkbox" id="export-daily-sales" class="form-checkbox h-5 w-5 text-indigo-600 rounded" ${isTotalView ? 'disabled' : 'checked'}>
+                                <span class="text-gray-700 font-medium">${viewingDay}일차 매출 요약</span>
+                            </label>
+                            <label class="flex items-center space-x-3">
+                                <input type="checkbox" id="export-total-sales" class="form-checkbox h-5 w-5 text-indigo-600 rounded" checked>
+                                <span class="text-gray-700 font-medium">전체 기간 총 매출 요약</span>
+                            </label>
+                        </div>
+                        <div class="flex justify-center space-x-4">
+                            <button data-action="hideModal" class="px-6 py-2 bg-gray-300 rounded-lg">취소</button>
+                            <button id="confirm-export-btn" class="px-6 py-2 bg-green-600 text-white rounded-lg">내보내기</button>
+                        </div>
+                    </div>
+                `);
+                document.getElementById('confirm-export-btn').onclick = appFunctions.exportToExcel;
+            },
+            // ✅ 엑셀 내보내기 로직 수정
+            exportToExcel: () => {
+                const wb = XLSX.utils.book_new();
+                let sheetsAdded = 0;
+
+                // 상세 매출 계산 함수 (가격, 수량, 합계 포함)
+                const calculateDetailedSales = (orders) => {
+                    const sales = {};
+                    const allItems = orders.flatMap(o => (o.orderBatches || []).flatMap(b => b.items));
+                    allItems.forEach(item => {
+                        if (!sales[item.name]) {
+                            sales[item.name] = {
+                                price: item.price,
+                                quantity: 0,
+                                total: 0
+                            };
+                        }
+                        const quantity = item.quantity || 1;
+                        sales[item.name].quantity += quantity;
+                        sales[item.name].total += item.price * quantity;
+                    });
+                    return sales;
+                };
+
+                const isTotalView = viewingDay === 'all';
+                
+                // 일일 매출 요약 시트
+                if (document.getElementById('export-daily-sales')?.checked && !isTotalView) {
+                    const dailyOrders = allOrders.filter(order => order.festivalDay === viewingDay);
+                    const detailedSales = calculateDetailedSales(dailyOrders);
+                    const totalRevenue = Object.values(detailedSales).reduce((sum, item) => sum + item.total, 0);
+                    
+                    const wsData = [
+                        ['메뉴명', '판매 수량', '합계 금액'],
+                        ...Object.entries(detailedSales).map(([name, data]) => [name, data.quantity, data.total]),
+                        [], // 빈 줄
+                        ['총 매출', '', totalRevenue]
+                    ];
+                    const ws = XLSX.utils.aoa_to_sheet(wsData);
+                    XLSX.utils.book_append_sheet(wb, ws, `${viewingDay}일차 매출`);
+                    sheetsAdded++;
+                }
+
+                // 전체 매출 요약 시트
+                if (document.getElementById('export-total-sales')?.checked) {
+                    const detailedSales = calculateDetailedSales(allOrders);
+                    const totalRevenue = Object.values(detailedSales).reduce((sum, item) => sum + item.total, 0);
+                    
+                    const wsData = [
+                        ['메뉴명', '판매 수량', '합계 금액'],
+                        ...Object.entries(detailedSales).map(([name, data]) => [name, data.quantity, data.total]),
+                        [],
+                        ['총 매출', '', totalRevenue]
+                    ];
+                    const ws = XLSX.utils.aoa_to_sheet(wsData);
+                    XLSX.utils.book_append_sheet(wb, ws, '전체 매출');
+                    sheetsAdded++;
+                }
+
+                // 주문 내역 상세 시트
+                if (document.getElementById('export-orders')?.checked) {
+                    const ordersToExport = isTotalView ? allOrders : allOrders.filter(order => order.festivalDay === viewingDay);
+                    const data = ordersToExport.map(order => ({
+                        '주문시간': formatTimestamp(order.timestamp),
+                        '일차': order.festivalDay,
+                        '테이블': order.tableNumber,
+                        '메뉴': (order.orderBatches || []).flatMap(b => b.items).map(item => `${item.name} x${item.quantity || 1}`).join(', '),
+                        '총금액': order.totalPrice,
+                        '상태': order.status
+                    }));
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    XLSX.utils.book_append_sheet(wb, ws, `${isTotalView ? '전체' : viewingDay + '일차'} 주문내역`);
+                    sheetsAdded++;
+                }
+
+                if (sheetsAdded > 0) {
+                    XLSX.writeFile(wb, `festival_data_${new Date().toISOString().split('T')[0]}.xlsx`);
+                } else {
+                    alert('내보낼 항목을 하나 이상 선택해주세요.');
+                }
+                hideModal();
+            },
             hideModal: hideModal
         };
 
@@ -306,7 +432,7 @@
                 const nextDay = dayNumbers.length > 0 ? Math.max(0, ...dayNumbers) + 1 : 1;
                 setDoc(configRef, { dayTabs: [...(config.dayTabs || []), { day: nextDay, date: null }] }, { merge: true });
             } else if (target.id === 'export-btn') {
-                // Export function can be added here if needed
+                appFunctions.showExportModal();
             } else if (target.matches('.tab-btn')) {
                 const day = target.dataset.day;
                 viewingDay = day === 'all' ? 'all' : parseInt(day);
@@ -318,8 +444,10 @@
         onSnapshot(configRef, async (docSnap) => {
             if (docSnap.exists()) {
                 config = { dayTabs: [], activeDay: 1, ...docSnap.data() };
-                if (viewingDay === null || (viewingDay !== 'all' && !(config.dayTabs || []).some(d => d.day === viewingDay))) {
-                    viewingDay = config.activeDay || ((config.dayTabs || []).length > 0 ? Math.max(...config.dayTabs.map(d => d.day)) : 'all');
+                const validDays = (config.dayTabs || []).map(d => d.day);
+                
+                if (viewingDay === null || (viewingDay !== 'all' && !validDays.includes(viewingDay))) {
+                    viewingDay = config.activeDay || (validDays.length > 0 ? Math.max(...validDays) : 'all');
                 }
             } else {
                 const initialConfig = { dayTabs: [{day: 1, date: new Date().toISOString().split('T')[0]}], activeDay: 1 };
@@ -334,22 +462,22 @@
         onSnapshot(query(collection(db, "orders")), (snapshot) => {
             const newOrdersMap = new Map();
             snapshot.docs.forEach(doc => newOrdersMap.set(doc.id, { id: doc.id, ...doc.data() }));
-
+            
             if (previousOrdersMap.size > 0 && !isMuted) {
                 newOrdersMap.forEach((order, id) => {
                     const prevOrder = previousOrdersMap.get(id);
-                    if (order.isHighlighted && (!prevOrder || !prevOrder.isHighlighted)) {
+                    if (order.isHighlighted && (!prevOrder || prevOrder.isHighlighted !== order.isHighlighted)) {
                         const isTrulyNew = !prevOrder || (prevOrder.orderBatches.length < order.orderBatches.length);
                         if(isTrulyNew) (additionalOrderAudio.cloneNode(true)).play().catch(e=>console.error(e));
                     }
                 });
             }
-
+            
             allOrders = Array.from(newOrdersMap.values());
             previousOrdersMap = new Map(newOrdersMap);
             renderDashboard();
         });
-
     </script>
 </body>
 </html>
+
