@@ -143,7 +143,11 @@
     const highlightClass = order.isHighlighted ? 'highlight-new-order' : (statusStyles[order.status] || '');
 
     // 상태 변경 기록
-    const firstOrderTime = formatTimestamp(order.timestamp);
+    const history = order.statusHistory || [];
+    const lastRecord = history.length > 0 ? history[history.length - 1] : null;
+    // lastTime은 마지막 상태 변경 시간을 참조하도록 되어 있습니다.
+    const lastTime = lastRecord ? new Date(lastRecord.time).toLocaleString("ko-KR") : formatTimestamp(order.timestamp);
+    // HTML에서 ${lastTime}을 사용합니다.
 
     const historyText = history.map(h => `${h.status} - ${new Date(h.time).toLocaleString("ko-KR")}`).join("\n");
 
