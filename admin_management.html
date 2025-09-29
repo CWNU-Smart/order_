@@ -78,17 +78,7 @@
         soundToggleBtn.innerHTML = soundOnIcon;
         soundToggleBtn.addEventListener('click', toggleSound);
 
-        const formatTimestamp = (ts) => {
-            if (!ts || !ts.seconds) return '시간 정보 없음';
-            const date = new Date(ts.seconds * 1000);
-            const year = date.getFullYear();
-            const month = date.getMonth() + 1;
-            const day = date.getDate();
-            const hours = date.getHours();
-            const minutes = date.getMinutes();
-            const seconds = date.getSeconds();
-            return `${year}년 ${month}월 ${day}일 ${hours}시 ${minutes}분 ${seconds}초`;
-        };
+        const formatTimestamp = (ts) => !ts || !ts.seconds ? '시간 없음' : new Date(ts.seconds * 1000).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit'});
 
         function renderDashboard() {
             const ordersToDisplay = viewingDay === 'all' ? allOrders : allOrders.filter(o => o.festivalDay === viewingDay);
@@ -119,7 +109,7 @@
             const batchesHTML = (order.orderBatches || [{items: order.items || []}]).map((batch, index) => {
                 const itemsHTML = (batch.items || []).map(item => {
                     const textColor = !batch.acknowledged ? 'text-red-500 font-bold' : 'text-gray-700';
-                    const displayText = `${item.name} x${item.quantity}`;
+                    const displayText = item.price > 0 ? `${item.name} x${item.quantity}` : item.name;
                     return `<p class="${textColor}">${displayText}</p>`;
                 }).join('');
                 return (index > 0 ? '<hr class="my-2 border-dashed border-gray-300">' : '') + itemsHTML;
@@ -129,7 +119,7 @@
                     <h2 class="text-2xl font-bold text-indigo-600 pr-4">테이블 ${order.tableNumber}</h2>
                     <div class="text-right flex-shrink-0">
                         <button data-action="showDeleteModal" data-id="${order.id}" class="text-gray-400 hover:text-red-600 z-10 block ml-auto w-6 h-6"><svg class="pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button>
-                        <span class="order-time text-xs text-gray-500">${formatTimestamp(order.timestamp)}</span>
+                        <span class="text-xs text-gray-500 block mt-1">${formatTimestamp(order.timestamp)}</span>
                     </div>
                 </div>
                 <div class="border-t border-b border-gray-200 py-3 my-3 space-y-2 flex-grow">${batchesHTML}</div>
@@ -147,17 +137,27 @@
         const appFunctions={showDateModal:t=>{const e=config.dayTabs.find(e=>e.day===t);showModal(`<div class="bg-white p-8 rounded-xl shadow-2xl text-center w-full max-w-sm"><h2 class="text-xl font-bold mb-4">${t}일차 날짜 설정</h2><input id="date-input" type="date" value="${e.date||""}" class="w-full p-2 border rounded-md mb-4"><div class="flex justify-center space-x-4"><button data-action="hideModal" class="px-6 py-2 bg-gray-300 rounded-lg">취소</button><button id="save-date-btn" class="px-6 py-2 bg-indigo-600 text-white rounded-lg">저장</button></div></div>`);document.getElementById("save-date-btn").onclick=()=>appFunctions.saveDate(t)},saveDate:async t=>{const e=document.getElementById("date-input").value;if(!e)return void alert("날짜를 선택해주세요.");const a=config.dayTabs.map(a=>a.day===t?{...a,date:e}:a);await setDoc(configRef,{dayTabs:a},{merge:!0});hideModal()},activateDay:async t=>{const e=config.dayTabs.find(e=>e.day===t);if(!e||!e.date)return void alert("날짜를 먼저 저장해주세요.");confirm(`${t}일차(${e.date})를 활성화하시겠습니까?`)&&await setDoc(configRef,{activeDay:t},{merge:!0})},showPasswordModal:t=>{showModal(`<div class="bg-white p-8 rounded-xl shadow-2xl text-center w-full max-w-sm"><h2 class="text-xl font-bold text-red-600 mb-4">${t}일차 삭제</h2><p class="mb-4">비밀번호를 입력하세요.</p><input id="password-input" type="password" class="w-full p-2 border rounded-md mb-4"><div class="flex justify-center space-x-4"><button data-action="hideModal" class="px-6 py-2 bg-gray-300 rounded-lg">취소</button><button id="confirm-delete-day-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg">삭제</button></div></div>`);document.getElementById("confirm-delete-day-btn").onclick=()=>appFunctions.confirmDeleteDay(t)},confirmDeleteDay:async t=>{if(document.getElementById("password-input").value!==DELETE_PASSWORD)return void alert("비밀번호가 틀렸습니다.");if(!confirm(`정말로 ${t}일차 데이터를 영구적으로 삭제하시겠습니까?`))return;try{const e=writeBatch(db),a=query(collection(db,"orders"),where("festivalDay","==",t)),o=await getDocs(a);o.forEach(t=>e.delete(t.ref));const n=config.dayTabs.filter(e=>e.day!==t);e.set(configRef,{dayTabs:n},{merge:!0});await e.commit();hideModal()}catch(t){console.error("삭제 오류:",t);alert("삭제 중 오류 발생")}},showDeleteModal:t=>{showModal(`<div class="bg-white p-8 rounded-xl shadow-2xl text-center w-full max-w-sm"><h2 class="text-xl font-bold text-red-600 mb-4">주문을 삭제하시겠습니까?</h2><div class="flex justify-center space-x-4"><button data-action="hideModal" class="px-6 py-2 bg-gray-300 rounded-lg">취소</button><button id="confirm-delete-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg">삭제</button></div></div>`);document.getElementById("confirm-delete-btn").onclick=()=>appFunctions.confirmDelete(t)},confirmDelete:async t=>{await deleteDoc(doc(db,"orders",t));hideModal()},updateStatus:async(t,e)=>{const a=doc(db,"orders",t),o=await getDoc(a);if(o.exists()){const t=(o.data().orderBatches||[]).map(t=>({...t,acknowledged:!0}));await updateDoc(a,{status:e,isHighlighted:!1,orderBatches:t})}},showExportModal:()=>{const t="all"===viewingDay;showModal(`<div class="bg-white p-8 rounded-xl shadow-2xl text-left w-full max-w-sm"><h2 class="text-xl font-bold mb-6">엑셀 데이터 선택</h2><div class="space-y-4"><label class="flex items-center ${t?"text-gray-400":""}"><input type="checkbox" id="export-daily-sales" class="h-5 w-5" ${t?"disabled":""}><span class="ml-3">일일 매출 (${t?"일차 선택 필요":viewingDay+"일차"})</span></label><label class="flex items-center"><input type="checkbox" id="export-total-sales" class="h-5 w-5"><span class="ml-3">전체 매출</span></label><label class="flex items-center"><input type="checkbox" id="export-orders" class="h-5 w-5"><span class="ml-3">주문 내역 (${t?"전체":viewingDay+"일차"})</span></label></div><div class="mt-8 flex justify-end space-x-4"><button data-action="hideModal" class="px-6 py-2 bg-gray-300 rounded-lg">취소</button><button id="confirm-export-btn" class="px-6 py-2 bg-green-600 text-white rounded-lg">다운로드</button></div></div>`);document.getElementById("confirm-export-btn").onclick=appFunctions.exportToExcel},exportToExcel:()=>{const t=XLSX.utils.book_new();if(document.getElementById("export-daily-sales")?.checked){const{totalRevenue:e,menuSales:a}=calculateSales(allOrders.filter(t=>t.festivalDay===viewingDay));XLSX.utils.book_append_sheet(t,XLSX.utils.aoa_to_sheet([["항목","값"],["총 매출",e],...Object.entries(a)]),`${viewingDay}일차 매출`)}
             if(document.getElementById("export-total-sales")?.checked){const{totalRevenue:e,menuSales:a}=calculateSales(allOrders);XLSX.utils.book_append_sheet(t,XLSX.utils.aoa_to_sheet([["항목","값"],["총 매출",e],...Object.entries(a)]),"전체 매출")}
             if(document.getElementById("export-orders")?.checked){const e="all"===viewingDay?allOrders:allOrders.filter(t=>t.festivalDay===viewingDay),a=e.map(t=>({시간:formatTimestamp(t.timestamp),일차:t.festivalDay,테이블:t.tableNumber,메뉴:(t.orderBatches||[]).flatMap(t=>t.items).map(t=>`${t.name}x${t.quantity}`).join(", "),금액:t.totalPrice,상태:t.status}));XLSX.utils.book_append_sheet(t,XLSX.utils.json_to_sheet(a),"주문내역")}
-            t.SheetNames.length>0?XLSX.writeFile(t,"매출정산.xlsx"):alert("항목을 선택해주세요.");hideModal()},hideModal:hideModal};
+            wb.SheetNames.length>0?XLSX.writeFile(t,"매출정산.xlsx"):alert("항목을 선택해주세요.");hideModal()},hideModal:hideModal};
         
+        // ✨✨ 수정된 부분: 모든 항목(가격 0원 포함)의 수량을 집계하도록 수정 ✨✨
         function calculateSales(orders) {
             const menuSales = {};
-            const allItems = orders.flatMap(o => (o.orderBatches || [{ items: o.items || [] }]).flatMap(b => b.items || []));
+            // 1. 모든 주문(orders)에서 'orderBatches' 배열을 꺼내 하나의 배열로 합칩니다.
+            //    - 만약 'orderBatches'가 없는 옛날 데이터일 경우를 대비해 'items'도 확인합니다.
+            const allItems = orders.flatMap(order => 
+                (order.orderBatches || [{ items: order.items || [] }]).flatMap(batch => batch.items || [])
+            );
+
+            // 2. 합쳐진 모든 아이템(allItems)을 순회하며 수량을 집계합니다.
             allItems.forEach(item => {
+                // 3. item이 유효하고, 이름과 수량이 정상적인 값일 때만 집계합니다.
                 if (item && item.name && typeof item.quantity === 'number') {
                     menuSales[item.name] = (menuSales[item.name] || 0) + item.quantity;
                 }
             });
-            const totalRevenue = orders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
+
+            // 4. 총매출은 각 주문서의 totalPrice를 합산합니다.
+            const totalRevenue = orders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
             return { totalRevenue, menuSales };
         }
 
@@ -192,8 +192,8 @@
                 newOrdersMap.forEach((order, id) => {
                     const prevOrder = previousOrdersMap.get(id);
                     if (order.isHighlighted && (!prevOrder || !prevOrder.isHighlighted)) {
-                        const isAdditionalOrder = prevOrder && (prevOrder.orderBatches?.length || 1) < (order.orderBatches?.length || 1);
-                        if (isAdditionalOrder) {
+                        const isNewOrder = !prevOrder || (prevOrder.orderBatches?.length || 1) < (order.orderBatches?.length || 1);
+                        if (isNewOrder && (order.orderBatches?.length || 1) > 1) {
                             additionalOrderAudio.play().catch(e=>console.log("추가 주문 알림음 재생 실패:", e));
                         } else {
                             newOrderAudio.play().catch(e=>console.log("신규 주문 알림음 재생 실패:", e));
