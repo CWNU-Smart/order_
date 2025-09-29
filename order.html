@@ -29,21 +29,8 @@
         </div>
 
         <div id="menu-section" class="space-y-4 fade-in" style="animation-delay: 0.1s;">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">메뉴판</h2>
-            <template id="menu-item-template">
-                <div class="bg-white p-4 rounded-xl shadow-md flex items-center justify-between">
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-900"></h3>
-                        <p class="text-gray-600 font-medium"></p>
-                    </div>
-                    <div class="flex items-center space-x-3">
-                        <button class="quantity-change bg-gray-200 text-gray-800 rounded-full w-8 h-8 text-lg font-bold hover:bg-gray-300">-</button>
-                        <span class="quantity text-lg font-semibold w-8 text-center">0</span>
-                        <button class="quantity-change bg-indigo-500 text-white rounded-full w-8 h-8 text-lg font-bold hover:bg-indigo-600">+</button>
-                    </div>
-                </div>
-            </template>
-            </div>
+            <!-- 메뉴가 여기에 동적으로 생성됩니다. -->
+        </div>
 
         <div id="order-summary" class="mt-8 bg-white p-6 rounded-xl shadow-lg sticky bottom-4 fade-in" style="animation-delay: 0.2s;">
             <h3 class="text-xl font-bold text-gray-800 mb-4">주문 내역</h3>
@@ -65,13 +52,13 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, doc, getDoc, query, where, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, doc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
        const firebaseConfig = {
  		apiKey: "AIzaSyAMS_URZ1lFsbyJscsIjPvgENZouSbnX0A",
  		authDomain: "order-cfe51.firebaseapp.com",
  		projectId: "order-cfe51",
- 		storageBucket: "order-cfe51.firebasestorage.app",
+ 		storageBucket: "order-cfe51.appspot.com",
  		messagingSenderId: "1047726700523",
  		appId: "1:1047726700523:web:0360158e7baca0d3450bae",
  		measurementId: "G-45K52YE0BB"
@@ -115,13 +102,10 @@
             }
             fetchConfig();
 
-            // --- ✅ 새로운 메뉴 데이터 (자릿세 추가) ---
             const menuData = [
                 {
                     category: '🪑 자릿세(2시간)',
-                    items: [
-                        { id: 'seat-charge', name: '인원', price: 3000 },
-                    ]
+                    items: [ { id: 'seat-charge', name: '인원', price: 3000 } ]
                 },
                 {
                     category: '🍗 치킨류',
@@ -147,7 +131,19 @@
             ];
 
             const menuSection = document.getElementById('menu-section');
-            const menuItemTemplate = document.getElementById('menu-item-template');
+            const menuItemTemplate = document.createElement('template');
+            menuItemTemplate.innerHTML = `
+                <div class="bg-white p-4 rounded-xl shadow-md flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900"></h3>
+                        <p class="text-gray-600 font-medium"></p>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button class="quantity-change bg-gray-200 text-gray-800 rounded-full w-8 h-8 text-lg font-bold hover:bg-gray-300">-</button>
+                        <span class="quantity text-lg font-semibold w-8 text-center">0</span>
+                        <button class="quantity-change bg-indigo-500 text-white rounded-full w-8 h-8 text-lg font-bold hover:bg-indigo-600">+</button>
+                    </div>
+                </div>`;
             const cart = {};
 
             menuSection.innerHTML = '<h2 class="text-2xl font-bold text-gray-800 mb-4">메뉴판</h2>'; 
@@ -160,7 +156,6 @@
 
                 categoryInfo.items.forEach(item => {
                     const clone = menuItemTemplate.content.cloneNode(true);
-                    
                     clone.querySelector('h3').textContent = item.name;
                     clone.querySelector('p').textContent = `${item.price.toLocaleString()}원`;
                     
@@ -174,7 +169,6 @@
                     cart[item.id] = { ...item, quantity: 0 };
                 });
             });
-
 
             function updateQuantity(item, change, quantitySpan) {
                 const currentQuantity = cart[item.id].quantity;
@@ -238,58 +232,27 @@
                 const parsedTableNumber = parseInt(tableNumber);
 
                 try {
-                    const q = query(collection(db, "orders"), 
-                        where("tableNumber", "==", parsedTableNumber),
-                        where("festivalDay", "==", activeDayInfo.day),
-                        where("status", "in", ["주문 접수 중", "요리 중", "서빙 완료"])
-                    );
-
-                    const querySnapshot = await getDocs(q);
+                    const itemsToSave = orderedItems.map(item => ({ 
+                        name: item.name, 
+                        quantity: item.quantity, 
+                        price: item.price
+                    }));
                     
-                    if (!querySnapshot.empty) {
-                        // --- 추가 주문 로직 ---
-                        const existingOrderDoc = querySnapshot.docs[0];
-                        const existingData = existingOrderDoc.data();
-                        
-                        const newBatch = {
-                            acknowledged: false,
-                            items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price }))
-                        };
-                        
-                        const existingBatches = existingData.orderBatches || [{ acknowledged: true, items: existingData.items || [] }];
-
-                        const updatedBatches = [...existingBatches, newBatch];
-                        const newTotalPrice = updatedBatches.flat().flatMap(batch => batch.items).reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-                        await updateDoc(existingOrderDoc.ref, {
-                            orderBatches: updatedBatches,
-                            totalPrice: newTotalPrice,
-                            timestamp: new Date(),
-                            isHighlighted: true
-                        });
-
-                        showAlert("추가 주문 완료!", "기존 주문에 메뉴가 추가되었습니다.", 2000);
-                    } else {
-                        // --- 신규 주문 로직 ---
-                        const firstBatch = {
-                            acknowledged: false,
-                            items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price }))
-                        };
-                        
-                        const totalPrice = firstBatch.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-                        await addDoc(collection(db, "orders"), {
-						    tableNumber: parsedTableNumber,
-						    orderBatches: [firstBatch],
-						    totalPrice: totalPrice,
-						    status: "주문 접수 중",
-						    timestamp: new Date(),
-						    festivalDay: activeDayInfo.day,
-						    isHighlighted: true
-                        });
-                        showAlert("주문 완료!", "주문이 성공적으로 접수되었습니다.", 2000);
-                    }
+                    const totalPrice = itemsToSave.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                    
+                    await addDoc(collection(db, "orders"), {
+                        tableNumber: parsedTableNumber,
+                        items: itemsToSave,
+                        totalPrice: totalPrice,
+                        status: "주문 접수 중",
+                        timestamp: serverTimestamp(),
+                        festivalDay: activeDayInfo.day,
+                        isHighlighted: true
+                    });
+                    
+                    showAlert("주문 완료!", "주문이 성공적으로 접수되었습니다.", 2000);
                     setTimeout(() => { window.location.reload(); }, 2100);
+
                 } catch (e) {
                     console.error("주문 처리 오류 상세 정보: ", e);
                     showAlert("주문 실패", `주문 처리 중 오류가 발생했습니다. (오류: ${e.code})`);
@@ -300,6 +263,3 @@
     </script>
 </body>
 </html>
-
-
-
