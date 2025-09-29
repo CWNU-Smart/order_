@@ -215,7 +215,7 @@
                         hasItems = true;
                         const itemDiv = document.createElement('div');
                         itemDiv.className = 'flex justify-between text-gray-800';
-                        const priceText = item.price > 0 ? `<span>${(item.price * item.quantity).toLocaleString()}원</span>` : '';
+                        const priceText = item.price > 0 ? `<span>${(item.price * item.quantity).toLocaleString()}원</span>` : '<span>-</span>';
                         itemDiv.innerHTML = `<span>${item.name} x${item.quantity}</span>${priceText}`;
                         cartItemsDiv.appendChild(itemDiv);
                         total += item.price * item.quantity;
@@ -302,6 +302,7 @@
     </script>
 </body>
 </html>
+
 
 
 
