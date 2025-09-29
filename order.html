@@ -19,7 +19,7 @@
 
     <div class="container mx-auto max-w-lg p-4">
         <header class="text-center my-6">
-            <h1 class="text-4xl font-bold text-indigo-600">🔥 스제치킨 융융죽겠지 🔥</h1>
+            <h1 class="text-4xl font-bold text-indigo-600">🔥 박준혁은 보아라 🔥</h1>
             <p class="text-gray-600 mt-2">간편하게 주문하세요!</p>
         </header>
 
@@ -43,7 +43,7 @@
                     </div>
                 </div>
             </template>
-            </div>
+        </div>
 
         <div id="order-summary" class="mt-8 bg-white p-6 rounded-xl shadow-lg sticky bottom-4 fade-in" style="animation-delay: 0.2s;">
             <h3 class="text-xl font-bold text-gray-800 mb-4">주문 내역</h3>
@@ -68,13 +68,13 @@
         import { getFirestore, collection, addDoc, doc, getDoc, query, where, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
        const firebaseConfig = {
- 		apiKey: "AIzaSyAMS_URZ1lFsbyJscsIjPvgENZouSbnX0A",
- 		authDomain: "order-cfe51.firebaseapp.com",
- 		projectId: "order-cfe51",
- 		storageBucket: "order-cfe51.firebasestorage.app",
- 		messagingSenderId: "1047726700523",
- 		appId: "1:1047726700523:web:0360158e7baca0d3450bae",
- 		measurementId: "G-45K52YE0BB"
+ 		apiKey: "AIzaSyAWzxJrQROhzSnVJCmTEUDfpYn-TJqHbHQ",
+ 		authDomain: "order-4f8a2.firebaseapp.com",
+ 		projectId: "order-4f8a2",
+ 		storageBucket: "order-4f8a2.appspot.com",
+ 		messagingSenderId: "69210404028",
+ 		appId: "1:69210404028:web:25fe58abbcbff4d1e9ccb9",
+ 		measurementId: "G-JBK15C76HS"
 		};
 
         const submitOrderBtn = document.getElementById('submit-order');
@@ -95,7 +95,7 @@
             const db = getFirestore(app);
 
             let configData = null;
-
+            
             async function fetchConfig() {
                 const configRef = doc(db, "festivalConfig", "settings");
                 try {
@@ -115,66 +115,29 @@
             }
             fetchConfig();
 
-            // --- ✅ 새로운 메뉴 데이터 (자릿세 추가) ---
-            const menuData = [
-                {
-                    category: '🪑 자릿세(2시간)',
-                    items: [
-                        { id: 'seat-charge', name: '인원', price: 3000 },
-                    ]
-                },
-                {
-                    category: '🍗 치킨류',
-                    items: [
-                        { id: 'fried-chicken', name: '후라이드치킨', price: 14900 },
-                        { id: 'yangnyeom-chicken', name: '양념치킨', price: 15900 },
-                        { id: 'supreme-yangnyeom-chicken', name: '슈프림양념치킨', price: 16900 },
-                    ]
-                },
-                {
-                    category: '🥤 사이드',
-                    items: [
-                        { id: 'fries', name: '감자튀김', price: 6900 },
-                        { id: 'takoyaki', name: '타코야끼', price: 7900 },
-                        { id: 'hwachae', name: '화채', price: 7900 },
-                        { id: 'honey-garlic-fries', name: '허니갈릭감자', price: 8900 },
-                        { id: 'buldak-noodle', name: '불닭볶음면', price: 3000 },
-                        { id: 'coke-zero', name: '코카제로', price: 2000 },
-                        { id: 'pepsi-zero', name: '펩시제로', price: 2000 },
-                        { id: 'water', name: '물', price: 1000 },
-                    ]
-                }
+            const menu = [
+                { id: 'tteokbokki', name: '마약 떡볶이', price: 5000 },
+                { id: 'sundae', name: '찰순대', price: 4500 },
+                { id: 'fries', name: '모듬튀김', price: 4000 },
+                { id: 'eomuk', name: '부산어묵 (3개)', price: 2000 },
+                { id: 'chicken-skewer', name: '매콤 닭꼬치', price: 3500 },
             ];
 
             const menuSection = document.getElementById('menu-section');
             const menuItemTemplate = document.getElementById('menu-item-template');
             const cart = {};
 
-            menuSection.innerHTML = '<h2 class="text-2xl font-bold text-gray-800 mb-4">메뉴판</h2>'; 
-
-            menuData.forEach(categoryInfo => {
-                const categoryTitle = document.createElement('h3');
-                categoryTitle.className = 'text-xl font-bold text-gray-700 mt-8 mb-3';
-                categoryTitle.textContent = categoryInfo.category;
-                menuSection.appendChild(categoryTitle);
-
-                categoryInfo.items.forEach(item => {
-                    const clone = menuItemTemplate.content.cloneNode(true);
-
-                    clone.querySelector('h3').textContent = item.name;
-                    clone.querySelector('p').textContent = `${item.price.toLocaleString()}원`;
-
-                    const [minusBtn, plusBtn] = clone.querySelectorAll('.quantity-change');
-                    const quantitySpan = clone.querySelector('.quantity');
-
-                    minusBtn.addEventListener('click', () => updateQuantity(item, -1, quantitySpan));
-                    plusBtn.addEventListener('click', () => updateQuantity(item, 1, quantitySpan));
-
-                    menuSection.appendChild(clone);
-                    cart[item.id] = { ...item, quantity: 0 };
-                });
+            menu.forEach(item => {
+                const clone = menuItemTemplate.content.cloneNode(true);
+                clone.querySelector('h3').textContent = item.name;
+                clone.querySelector('p').textContent = `${item.price.toLocaleString()}원`;
+                const [minusBtn, plusBtn] = clone.querySelectorAll('.quantity-change');
+                const quantitySpan = clone.querySelector('.quantity');
+                minusBtn.addEventListener('click', () => updateQuantity(item, -1, quantitySpan));
+                plusBtn.addEventListener('click', () => updateQuantity(item, 1, quantitySpan));
+                menuSection.appendChild(clone);
+                cart[item.id] = { ...item, quantity: 0 };
             });
-
 
             function updateQuantity(item, change, quantitySpan) {
                 const currentQuantity = cart[item.id].quantity;
@@ -202,7 +165,7 @@
                         total += item.price * item.quantity;
                     }
                 });
-                if (!hasItems) cartItemsDiv.innerHTML = '<p class="text-gray-500">장바구니가 비어있습니다.</p>';
+                if (!hasItems) cartItemsDiv.innerHTML = '<p class="text-gray-500">카트가 비어있습니다.</p>';
                 totalPriceSpan.textContent = `${total.toLocaleString()}원`;
             }
 
@@ -227,7 +190,7 @@
                     submitOrderBtn.disabled = false;
                     return;
                 }
-
+                
                 const orderedItems = Object.values(cart).filter(item => item.quantity > 0);
                 if (orderedItems.length === 0) {
                     showAlert("입력 오류", "메뉴를 선택해주세요.");
@@ -245,17 +208,17 @@
                     );
 
                     const querySnapshot = await getDocs(q);
-
+                    
                     if (!querySnapshot.empty) {
                         // --- 추가 주문 로직 ---
                         const existingOrderDoc = querySnapshot.docs[0];
                         const existingData = existingOrderDoc.data();
-
+                        
                         const newBatch = {
                             acknowledged: false,
                             items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price }))
                         };
-
+                        
                         const existingBatches = existingData.orderBatches || [{ acknowledged: true, items: existingData.items || [] }];
 
                         const updatedBatches = [...existingBatches, newBatch];
@@ -275,17 +238,20 @@
                             acknowledged: false,
                             items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price }))
                         };
-
+                        
                         const totalPrice = firstBatch.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                        const now = new Date();
+                        const timeString = now.toTimeString().split(' ')[0];
+                        const finalTimestamp = new Date(`${activeDayInfo.date}T${timeString}`);
 
                         await addDoc(collection(db, "orders"), {
-						    tableNumber: parsedTableNumber,
-						    orderBatches: [firstBatch],
-						    totalPrice: totalPrice,
-						    status: "주문 접수 중",
-						    timestamp: new Date(),
-						    festivalDay: activeDayInfo.day,
-						    isHighlighted: true
+                            tableNumber: parsedTableNumber,
+                            orderBatches: [firstBatch],
+                            totalPrice: totalPrice,
+                            status: "주문 접수 중",
+                            timestamp: finalTimestamp,
+                            festivalDay: activeDayInfo.day,
+                            isHighlighted: true
                         });
                         showAlert("주문 완료!", "주문이 성공적으로 접수되었습니다.", 2000);
                     }
@@ -300,6 +266,3 @@
     </script>
 </body>
 </html>
-
-
-
