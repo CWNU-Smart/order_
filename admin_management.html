@@ -59,14 +59,8 @@
         
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-
         const DELETE_PASSWORD = "1153";
-
-        let allOrders = [];
-        let config = { dayTabs: [], activeDay: null };
-        let viewingDay = 'all';
-        let previousOrdersMap = new Map();
-        let isMuted = false;
+        let allOrders = [], config = { dayTabs: [], activeDay: null }, viewingDay = 'all', previousOrdersMap = new Map(), isMuted = false;
         
         const configRef = doc(db, "festivalConfig", "settings");
         const dayTabsContainer = document.getElementById('day-tabs-container');
@@ -80,40 +74,31 @@
         const soundOnIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>`;
         const soundOffIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l-2-2m0 0l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
 
-        function toggleSound() {
-            isMuted = !isMuted;
-            soundToggleBtn.innerHTML = isMuted ? soundOffIcon : soundOnIcon;
-        }
+        function toggleSound() { isMuted = !isMuted; soundToggleBtn.innerHTML = isMuted ? soundOffIcon : soundOnIcon; }
         soundToggleBtn.innerHTML = soundOnIcon;
         soundToggleBtn.addEventListener('click', toggleSound);
 
-        const formatTimestamp = (ts) => {
-            if (!ts || !ts.seconds) return '시간 정보 없음';
-            return new Date(ts.seconds * 1000).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit'});
-        };
+        const formatTimestamp = (ts) => !ts || !ts.seconds ? '시간 없음' : new Date(ts.seconds * 1000).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit'});
 
         function renderDashboard() {
-            const isTotalView = viewingDay === 'all';
-            const ordersToDisplay = isTotalView ? allOrders : allOrders.filter(order => order.festivalDay === viewingDay);
+            const ordersToDisplay = viewingDay === 'all' ? allOrders : allOrders.filter(o => o.festivalDay === viewingDay);
             const { totalRevenue, menuSales } = calculateSales(ordersToDisplay);
-
             summarySection.innerHTML = `
                 <div class="bg-white p-6 rounded-xl shadow-lg summary-card">
-                    <h2 class="text-xl font-bold text-gray-700 mb-2">${isTotalView ? '전체 총 매출' : '일일 총 매출'}</h2>
+                    <h2 class="text-xl font-bold text-gray-700 mb-2">${viewingDay === 'all' ? '전체 총 매출' : '일일 총 매출'}</h2>
                     <p class="text-4xl font-extrabold text-indigo-600">${totalRevenue.toLocaleString()}원</p>
                 </div>
                 <div class="bg-white p-6 rounded-xl shadow-lg summary-card">
-                    <h2 class="text-xl font-bold text-gray-700 mb-2">${isTotalView ? '전체 메뉴별 판매량' : '일일 메뉴별 판매량'}</h2>
+                    <h2 class="text-xl font-bold text-gray-700 mb-2">${viewingDay === 'all' ? '전체 메뉴별 판매량' : '일일 메뉴별 판매량'}</h2>
                     <div class="space-y-2 text-gray-800">${Object.keys(menuSales).length > 0 ? Object.entries(menuSales).sort(([,a],[,b]) => b-a).map(([name, q]) => `<p class="flex justify-between font-medium"><span>${name}</span><span>${q}개</span></p>`).join('') : '<p class="text-gray-500">주문 내역이 없습니다.</p>'}</div>
                 </div>`;
-
             orderList.innerHTML = '';
             const statusPriority = { "주문 접수 중": 1, "요리 중": 2, "서빙 완료": 3, "처리 완료": 4 };
             ordersToDisplay.sort((a, b) => (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99) || b.timestamp.seconds - a.timestamp.seconds);
             ordersToDisplay.forEach(order => {
-                const cardWrapper = document.createElement('div');
-                cardWrapper.innerHTML = createOrderCardHTML(order).trim();
-                orderList.appendChild(cardWrapper.firstChild);
+                const card = document.createElement('div');
+                card.innerHTML = createOrderCardHTML(order).trim();
+                orderList.appendChild(card.firstChild);
             });
         }
         
@@ -121,21 +106,15 @@
             const statusStyles = { "주문 접수 중": "border-yellow-400", "요리 중": "border-blue-400", "서빙 완료": "border-green-400", "처리 완료": "border-gray-300" };
             const statusBtnStyles = { "주문 접수 중": "bg-yellow-100 text-yellow-800", "요리 중": "bg-blue-100 text-blue-800", "서빙 완료": "bg-green-100 text-green-800", "처리 완료": "bg-gray-200 text-gray-500" };
             const highlightClass = order.isHighlighted ? 'highlight-new-order' : (statusStyles[order.status] || '');
-
-            // ✨✨ 수정된 부분: orderBatches를 순회하며 점선으로 구분 ✨✨
             const batchesHTML = (order.orderBatches || [{items: order.items || []}]).map((batch, index) => {
-                const itemsHTML = batch.items.map(item => {
+                const itemsHTML = (batch.items || []).map(item => {
                     const textColor = !batch.acknowledged ? 'text-red-500 font-bold' : 'text-gray-700';
                     const displayText = item.price > 0 ? `${item.name} x${item.quantity}` : item.name;
                     return `<p class="${textColor}">${displayText}</p>`;
                 }).join('');
-                // 첫 번째 주문 묶음 이후에는 점선 추가
-                const separator = index > 0 ? '<hr class="my-2 border-dashed border-gray-300">' : '';
-                return separator + itemsHTML;
+                return (index > 0 ? '<hr class="my-2 border-dashed border-gray-300">' : '') + itemsHTML;
             }).join('');
-
-            return `
-            <div data-order-id="${order.id}" class="bg-white rounded-xl shadow-lg p-5 flex flex-col transition-all duration-300 relative order-card border-4 ${highlightClass} ${order.status === '처리 완료' ? 'opacity-60' : ''}">
+            return `<div data-order-id="${order.id}" class="bg-white rounded-xl shadow-lg p-5 flex flex-col transition-all duration-300 relative order-card border-4 ${highlightClass} ${order.status === '처리 완료' ? 'opacity-60' : ''}">
                 <div class="flex justify-between items-start mb-3">
                     <h2 class="text-2xl font-bold text-indigo-600 pr-4">테이블 ${order.tableNumber}</h2>
                     <div class="text-right flex-shrink-0">
@@ -149,54 +128,36 @@
             </div>`;
         }
         
-        // ... (이하 renderTabs, showModal, hideModal 함수는 이전과 동일)
-        function renderTabs(){const validTabs=(config.dayTabs||[]).filter(d=>d&&typeof d.day=='number');const tabsHTML=validTabs.sort((a,b)=>a.day-b.day).map(dayInfo=>`
-        <div class="relative group"><button data-day="${dayInfo.day}" class="tab-btn px-4 py-2 rounded-md font-semibold text-sm bg-white shadow w-full text-left ${dayInfo.day===viewingDay?'view-active':''}">${dayInfo.day}일차</button><div class="absolute top-full pt-1 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-300"><div class="flex items-center bg-white shadow-xl rounded-md p-1"><button data-action="activateDay" data-day="${dayInfo.day}" title="활성화" class="p-2 text-gray-500 hover:text-emerald-500"><svg class="pointer-events-none h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></button><button data-action="showDateModal" data-day="${dayInfo.day}" title="날짜 수정" class="p-2 text-gray-500 hover:text-indigo-600"><svg class="pointer-events-none h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"/><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"/></svg></button><button data-action="showPasswordModal" data-day="${dayInfo.day}" title="삭제" class="p-2 text-gray-500 hover:text-red-600"><svg class="pointer-events-none h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"/></svg></button></div></div>
-        ${dayInfo.day===config.activeDay?'<span class="absolute -top-2 -right-2 text-xs bg-emerald-500 text-white px-1.5 py-0.5 rounded-full animate-pulse">ON</span>':''}</div>`).join('');
-        dayTabsContainer.innerHTML=`<button data-day="all" class="tab-btn px-4 py-2 rounded-md font-semibold text-sm bg-white shadow ${viewingDay==='all'?'view-active':''}">📊 전체</button>`+tabsHTML+`<button id="add-day-btn" class="px-3 py-2 bg-green-500 text-white rounded-md font-bold text-sm hover:bg-green-600 shadow">+</button><button id="export-btn" class="px-4 py-2 bg-gray-700 text-white rounded-md font-semibold text-sm hover:bg-gray-800 shadow">엑셀</button>`}
-        function showModal(innerHTML){modalContainer.innerHTML=`<div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">${innerHTML}</div>`;modalContainer.classList.remove('hidden')}
-        function hideModal(){modalContainer.classList.add('hidden');modalContainer.innerHTML=''}
+        function renderTabs(){const t=(config.dayTabs||[]).filter(e=>e&&typeof e.day=="number"),e=t.sort((t,e)=>t.day-e.day).map(t=>`
+        <div class="relative group"><button data-day="${t.day}" class="tab-btn px-4 py-2 rounded-md font-semibold text-sm bg-white shadow w-full text-left ${t.day===viewingDay?"view-active":""}">${t.day}일차</button><div class="absolute top-full pt-1 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-300"><div class="flex items-center bg-white shadow-xl rounded-md p-1"><button data-action="activateDay" data-day="${t.day}" title="활성화" class="p-2 text-gray-500 hover:text-emerald-500"><svg class="pointer-events-none h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></button><button data-action="showDateModal" data-day="${t.day}" title="날짜 수정" class="p-2 text-gray-500 hover:text-indigo-600"><svg class="pointer-events-none h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"/><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"/></svg></button><button data-action="showPasswordModal" data-day="${t.day}" title="삭제" class="p-2 text-gray-500 hover:text-red-600"><svg class="pointer-events-none h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"/></svg></button></div></div>
+        ${t.day===config.activeDay?'<span class="absolute -top-2 -right-2 text-xs bg-emerald-500 text-white px-1.5 py-0.5 rounded-full animate-pulse">ON</span>':""}</div>`).join("");dayTabsContainer.innerHTML=`<button data-day="all" class="tab-btn px-4 py-2 rounded-md font-semibold text-sm bg-white shadow ${"all"===viewingDay?"view-active":""}">📊 전체</button>`+e+'<button id="add-day-btn" class="px-3 py-2 bg-green-500 text-white rounded-md font-bold text-sm hover:bg-green-600 shadow">+</button><button id="export-btn" class="px-4 py-2 bg-gray-700 text-white rounded-md font-semibold text-sm hover:bg-gray-800 shadow">엑셀</button>`}
+        function showModal(t){modalContainer.innerHTML=`<div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">${t}</div>`;modalContainer.classList.remove("hidden")}
+        function hideModal(){modalContainer.classList.add("hidden");modalContainer.innerHTML=""}
 
-        const appFunctions = {
-            showDateModal:day=>{const dayInfo=config.dayTabs.find(d=>d.day===day);showModal(`<div class="bg-white p-8 rounded-xl shadow-2xl text-center w-full max-w-sm"><h2 class="text-xl font-bold mb-4">${day}일차 날짜 설정</h2><input id="date-input" type="date" value="${dayInfo.date||''}" class="w-full p-2 border rounded-md mb-4"><div class="flex justify-center space-x-4"><button data-action="hideModal" class="px-6 py-2 bg-gray-300 rounded-lg">취소</button><button id="save-date-btn" class="px-6 py-2 bg-indigo-600 text-white rounded-lg">저장</button></div></div>`);document.getElementById('save-date-btn').onclick=()=>appFunctions.saveDate(day)},
-            saveDate:async day=>{const newDate=document.getElementById('date-input').value;if(!newDate){alert('날짜를 선택해주세요.');return}
-            const updatedDayTabs=config.dayTabs.map(d=>d.day===day?{...d,date:newDate}:d);await setDoc(configRef,{dayTabs:updatedDayTabs},{merge:true});hideModal()},
-            activateDay:async day=>{const dayInfo=config.dayTabs.find(d=>d.day===day);if(!dayInfo||!dayInfo.date){alert('날짜를 먼저 저장해주세요.');return}
-            if(confirm(`${day}일차(${dayInfo.date})를 활성화하시겠습니까?`)){await setDoc(configRef,{activeDay:day},{merge:true})}},
-            showPasswordModal:day=>{showModal(`<div class="bg-white p-8 rounded-xl shadow-2xl text-center w-full max-w-sm"><h2 class="text-xl font-bold text-red-600 mb-4">${day}일차 삭제</h2><p class="mb-4">비밀번호를 입력하세요.</p><input id="password-input" type="password" class="w-full p-2 border rounded-md mb-4"><div class="flex justify-center space-x-4"><button data-action="hideModal" class="px-6 py-2 bg-gray-300 rounded-lg">취소</button><button id="confirm-delete-day-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg">삭제</button></div></div>`);document.getElementById('confirm-delete-day-btn').onclick=()=>appFunctions.confirmDeleteDay(day)},
-            confirmDeleteDay:async dayToDelete=>{if(document.getElementById('password-input').value!==DELETE_PASSWORD){alert('비밀번호가 틀렸습니다.');return}
-            if(!confirm(`정말로 ${dayToDelete}일차 데이터를 영구적으로 삭제하시겠습니까?`))return;try{const batch=writeBatch(db);const q=query(collection(db,"orders"),where("festivalDay","==",dayToDelete));const snapshot=await getDocs(q);snapshot.forEach(doc=>batch.delete(doc.ref));const updatedTabs=config.dayTabs.filter(d=>d.day!==dayToDelete);batch.set(configRef,{dayTabs:updatedTabs},{merge:true});await batch.commit();hideModal()}catch(error){console.error("삭제 오류:",error);alert("삭제 중 오류 발생")}},
-            showDeleteModal:orderId=>{showModal(`<div class="bg-white p-8 rounded-xl shadow-2xl text-center w-full max-w-sm"><h2 class="text-xl font-bold text-red-600 mb-4">주문을 삭제하시겠습니까?</h2><div class="flex justify-center space-x-4"><button data-action="hideModal" class="px-6 py-2 bg-gray-300 rounded-lg">취소</button><button id="confirm-delete-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg">삭제</button></div></div>`);document.getElementById('confirm-delete-btn').onclick=()=>appFunctions.confirmDelete(orderId)},
-            confirmDelete:async orderId=>{await deleteDoc(doc(db,"orders",orderId));hideModal()},
-            // ✨✨ 수정된 부분: 상태 업데이트 시 모든 주문 묶음을 '확인(acknowledged)' 처리 ✨✨
-            updateStatus: async (orderId, status) => {
-                const orderRef = doc(db, "orders", orderId);
-                const orderSnap = await getDoc(orderRef);
-                if(orderSnap.exists()) {
-                    const orderData = orderSnap.data();
-                    const updatedBatches = (orderData.orderBatches || []).map(batch => ({ ...batch, acknowledged: true }));
-                    await updateDoc(orderRef, { 
-                        status: status, 
-                        isHighlighted: false,
-                        orderBatches: updatedBatches 
-                    });
-                }
-            },
-            showExportModal:()=> {
-                const isTotalView=viewingDay==='all';showModal(`<div class="bg-white p-8 rounded-xl shadow-2xl text-left w-full max-w-sm"><h2 class="text-xl font-bold mb-6">엑셀 데이터 선택</h2><div class="space-y-4"><label class="flex items-center ${isTotalView?'text-gray-400':''}"><input type="checkbox" id="export-daily-sales" class="h-5 w-5" ${isTotalView?'disabled':''}><span class="ml-3">일일 매출 (${isTotalView?'일차 선택 필요':viewingDay+'일차'})</span></label><label class="flex items-center"><input type="checkbox" id="export-total-sales" class="h-5 w-5"><span class="ml-3">전체 매출</span></label><label class="flex items-center"><input type="checkbox" id="export-orders" class="h-5 w-5"><span class="ml-3">주문 내역 (${isTotalView?'전체':viewingDay+'일차'})</span></label></div><div class="mt-8 flex justify-end space-x-4"><button data-action="hideModal" class="px-6 py-2 bg-gray-300 rounded-lg">취소</button><button id="confirm-export-btn" class="px-6 py-2 bg-green-600 text-white rounded-lg">다운로드</button></div></div>`);document.getElementById('confirm-export-btn').onclick=appFunctions.exportToExcel},
-            exportToExcel:()=>{const wb=XLSX.utils.book_new();if(document.getElementById('export-daily-sales')?.checked){const{totalRevenue,menuSales}=calculateSales(allOrders.filter(o=>o.festivalDay===viewingDay));XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['항목','값'],['총 매출',totalRevenue],...Object.entries(menuSales)]),`${viewingDay}일차 매출`)}
-            if(document.getElementById('export-total-sales')?.checked){const{totalRevenue,menuSales}=calculateSales(allOrders);XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['항목','값'],['총 매출',totalRevenue],...Object.entries(menuSales)]),'전체 매출')}
-            if(document.getElementById('export-orders')?.checked){const ordersToExport=viewingDay==='all'?allOrders:allOrders.filter(o=>o.festivalDay===viewingDay);const data=ordersToExport.map(o=>({'시간':formatTimestamp(o.timestamp),'일차':o.festivalDay,'테이블':o.tableNumber,'메뉴':(o.orderBatches||[]).flatMap(b=>b.items).map(i=>`${i.name}x${i.quantity}`).join(', '),'금액':o.totalPrice,'상태':o.status}));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),'주문내역')}
-            if(wb.SheetNames.length>0)XLSX.writeFile(wb,`매출정산.xlsx`);else alert('항목을 선택해주세요.');hideModal()},
-            hideModal: hideModal
-        };
+        const appFunctions={showDateModal:t=>{const e=config.dayTabs.find(e=>e.day===t);showModal(`<div class="bg-white p-8 rounded-xl shadow-2xl text-center w-full max-w-sm"><h2 class="text-xl font-bold mb-4">${t}일차 날짜 설정</h2><input id="date-input" type="date" value="${e.date||""}" class="w-full p-2 border rounded-md mb-4"><div class="flex justify-center space-x-4"><button data-action="hideModal" class="px-6 py-2 bg-gray-300 rounded-lg">취소</button><button id="save-date-btn" class="px-6 py-2 bg-indigo-600 text-white rounded-lg">저장</button></div></div>`);document.getElementById("save-date-btn").onclick=()=>appFunctions.saveDate(t)},saveDate:async t=>{const e=document.getElementById("date-input").value;if(!e)return void alert("날짜를 선택해주세요.");const a=config.dayTabs.map(a=>a.day===t?{...a,date:e}:a);await setDoc(configRef,{dayTabs:a},{merge:!0});hideModal()},activateDay:async t=>{const e=config.dayTabs.find(e=>e.day===t);if(!e||!e.date)return void alert("날짜를 먼저 저장해주세요.");confirm(`${t}일차(${e.date})를 활성화하시겠습니까?`)&&await setDoc(configRef,{activeDay:t},{merge:!0})},showPasswordModal:t=>{showModal(`<div class="bg-white p-8 rounded-xl shadow-2xl text-center w-full max-w-sm"><h2 class="text-xl font-bold text-red-600 mb-4">${t}일차 삭제</h2><p class="mb-4">비밀번호를 입력하세요.</p><input id="password-input" type="password" class="w-full p-2 border rounded-md mb-4"><div class="flex justify-center space-x-4"><button data-action="hideModal" class="px-6 py-2 bg-gray-300 rounded-lg">취소</button><button id="confirm-delete-day-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg">삭제</button></div></div>`);document.getElementById("confirm-delete-day-btn").onclick=()=>appFunctions.confirmDeleteDay(t)},confirmDeleteDay:async t=>{if(document.getElementById("password-input").value!==DELETE_PASSWORD)return void alert("비밀번호가 틀렸습니다.");if(!confirm(`정말로 ${t}일차 데이터를 영구적으로 삭제하시겠습니까?`))return;try{const e=writeBatch(db),a=query(collection(db,"orders"),where("festivalDay","==",t)),o=await getDocs(a);o.forEach(t=>e.delete(t.ref));const n=config.dayTabs.filter(e=>e.day!==t);e.set(configRef,{dayTabs:n},{merge:!0});await e.commit();hideModal()}catch(t){console.error("삭제 오류:",t);alert("삭제 중 오류 발생")}},showDeleteModal:t=>{showModal(`<div class="bg-white p-8 rounded-xl shadow-2xl text-center w-full max-w-sm"><h2 class="text-xl font-bold text-red-600 mb-4">주문을 삭제하시겠습니까?</h2><div class="flex justify-center space-x-4"><button data-action="hideModal" class="px-6 py-2 bg-gray-300 rounded-lg">취소</button><button id="confirm-delete-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg">삭제</button></div></div>`);document.getElementById("confirm-delete-btn").onclick=()=>appFunctions.confirmDelete(t)},confirmDelete:async t=>{await deleteDoc(doc(db,"orders",t));hideModal()},updateStatus:async(t,e)=>{const a=doc(db,"orders",t),o=await getDoc(a);if(o.exists()){const t=(o.data().orderBatches||[]).map(t=>({...t,acknowledged:!0}));await updateDoc(a,{status:e,isHighlighted:!1,orderBatches:t})}},showExportModal:()=>{const t="all"===viewingDay;showModal(`<div class="bg-white p-8 rounded-xl shadow-2xl text-left w-full max-w-sm"><h2 class="text-xl font-bold mb-6">엑셀 데이터 선택</h2><div class="space-y-4"><label class="flex items-center ${t?"text-gray-400":""}"><input type="checkbox" id="export-daily-sales" class="h-5 w-5" ${t?"disabled":""}><span class="ml-3">일일 매출 (${t?"일차 선택 필요":viewingDay+"일차"})</span></label><label class="flex items-center"><input type="checkbox" id="export-total-sales" class="h-5 w-5"><span class="ml-3">전체 매출</span></label><label class="flex items-center"><input type="checkbox" id="export-orders" class="h-5 w-5"><span class="ml-3">주문 내역 (${t?"전체":viewingDay+"일차"})</span></label></div><div class="mt-8 flex justify-end space-x-4"><button data-action="hideModal" class="px-6 py-2 bg-gray-300 rounded-lg">취소</button><button id="confirm-export-btn" class="px-6 py-2 bg-green-600 text-white rounded-lg">다운로드</button></div></div>`);document.getElementById("confirm-export-btn").onclick=appFunctions.exportToExcel},exportToExcel:()=>{const t=XLSX.utils.book_new();if(document.getElementById("export-daily-sales")?.checked){const{totalRevenue:e,menuSales:a}=calculateSales(allOrders.filter(t=>t.festivalDay===viewingDay));XLSX.utils.book_append_sheet(t,XLSX.utils.aoa_to_sheet([["항목","값"],["총 매출",e],...Object.entries(a)]),`${viewingDay}일차 매출`)}
+            if(document.getElementById("export-total-sales")?.checked){const{totalRevenue:e,menuSales:a}=calculateSales(allOrders);XLSX.utils.book_append_sheet(t,XLSX.utils.aoa_to_sheet([["항목","값"],["총 매출",e],...Object.entries(a)]),"전체 매출")}
+            if(document.getElementById("export-orders")?.checked){const e="all"===viewingDay?allOrders:allOrders.filter(t=>t.festivalDay===viewingDay),a=e.map(t=>({시간:formatTimestamp(t.timestamp),일차:t.festivalDay,테이블:t.tableNumber,메뉴:(t.orderBatches||[]).flatMap(t=>t.items).map(t=>`${t.name}x${t.quantity}`).join(", "),금액:t.totalPrice,상태:t.status}));XLSX.utils.book_append_sheet(t,XLSX.utils.json_to_sheet(a),"주문내역")}
+            wb.SheetNames.length>0?XLSX.writeFile(t,"매출정산.xlsx"):alert("항목을 선택해주세요.");hideModal()},hideModal:hideModal};
         
+        // ✨✨ 수정된 부분: 모든 항목(가격 0원 포함)의 수량을 집계하도록 수정 ✨✨
         function calculateSales(orders) {
             const menuSales = {};
-            // ✨ 수정된 부분: orderBatches 내부의 모든 items를 기준으로 계산
-            const allItems = orders.flatMap(o => (o.orderBatches || []).flatMap(b => b.items));
-            allItems.forEach(item => { menuSales[item.name] = (menuSales[item.name] || 0) + item.quantity; });
-            const totalRevenue = orders.reduce((sum, o) => sum + o.totalPrice, 0);
+            // 1. 모든 주문(orders)에서 'orderBatches' 배열을 꺼내 하나의 배열로 합칩니다.
+            //    - 만약 'orderBatches'가 없는 옛날 데이터일 경우를 대비해 'items'도 확인합니다.
+            const allItems = orders.flatMap(order => 
+                (order.orderBatches || [{ items: order.items || [] }]).flatMap(batch => batch.items || [])
+            );
+
+            // 2. 합쳐진 모든 아이템(allItems)을 순회하며 수량을 집계합니다.
+            allItems.forEach(item => {
+                // 3. item이 유효하고, 이름과 수량이 정상적인 값일 때만 집계합니다.
+                if (item && item.name && typeof item.quantity === 'number') {
+                    menuSales[item.name] = (menuSales[item.name] || 0) + item.quantity;
+                }
+            });
+
+            // 4. 총매출은 각 주문서의 totalPrice를 합산합니다.
+            const totalRevenue = orders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
             return { totalRevenue, menuSales };
         }
 
@@ -227,22 +188,19 @@
 
         onSnapshot(query(collection(db, "orders"), orderBy("timestamp", "desc")), (snapshot) => {
             const newOrdersMap = new Map(snapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() }]));
-            
             if (previousOrdersMap.size > 0 && !isMuted) {
                 newOrdersMap.forEach((order, id) => {
                     const prevOrder = previousOrdersMap.get(id);
-                    // isHighlighted가 true로 바뀌었을 때만 알림
                     if (order.isHighlighted && (!prevOrder || !prevOrder.isHighlighted)) {
                         const isNewOrder = !prevOrder || (prevOrder.orderBatches?.length || 1) < (order.orderBatches?.length || 1);
-                        if(isNewOrder && (order.orderBatches?.length || 1) > 1){
-                             additionalOrderAudio.play().catch(e => console.log("추가 주문 알림음 재생 실패:", e));
+                        if (isNewOrder && (order.orderBatches?.length || 1) > 1) {
+                            additionalOrderAudio.play().catch(e=>console.log("추가 주문 알림음 재생 실패:", e));
                         } else {
-                             newOrderAudio.play().catch(e => console.log("신규 주문 알림음 재생 실패:", e));
+                            newOrderAudio.play().catch(e=>console.log("신규 주문 알림음 재생 실패:", e));
                         }
                     }
                 });
             }
-            
             allOrders = Array.from(newOrdersMap.values());
             previousOrdersMap = new Map(newOrdersMap);
             renderDashboard();
