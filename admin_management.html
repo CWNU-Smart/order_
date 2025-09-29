@@ -143,9 +143,7 @@
     const highlightClass = order.isHighlighted ? 'highlight-new-order' : (statusStyles[order.status] || '');
 
     // 상태 변경 기록
-    const history = order.statusHistory || [];
-    const lastRecord = history.length > 0 ? history[history.length - 1] : null;
-    const lastTime = lastRecord ? new Date(lastRecord.time).toLocaleString("ko-KR") : formatTimestamp(order.timestamp);
+    const firstOrderTime = formatTimestamp(order.timestamp);
 
     const historyText = history.map(h => `${h.status} - ${new Date(h.time).toLocaleString("ko-KR")}`).join("\n");
 
@@ -354,4 +352,5 @@
     </script>
 </body>
 </html>
+
 
