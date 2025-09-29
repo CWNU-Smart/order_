@@ -26,9 +26,8 @@
 
     <!-- 사운드 재생을 위한 숨겨진 오디오 요소 -->
     <!-- 중요: 아래 src 경로는 실제 음원 파일이 업로드된 URL로 변경해야 합니다. -->
-    <!-- 예: https://your-github-username.github.io/your-repo/sounds/new-order.mp3 -->
-    <audio id="new-order-sound" src="https://github.com/CWNU-Smart/order_/raw/refs/heads/main/ordersound.m4a" preload="auto"></audio>
-    <audio id="additional-order-sound" src="https://github.com/CWNU-Smart/order_/raw/refs/heads/main/ordersound.m4a" preload="auto"></audio>
+    <audio id="new-order-sound" src="YOUR_NEW_ORDER_SOUND_URL_HERE" preload="auto"></audio>
+    <audio id="additional-order-sound" src="YOUR_ADDITIONAL_ORDER_SOUND_URL_HERE" preload="auto"></audio>
 
     <div class="container mx-auto p-4 sm:p-6 lg:p-8">
         <header class="text-center my-6 relative">
@@ -52,14 +51,14 @@
         import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, orderBy, getDocs, setDoc, writeBatch, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
-  		apiKey: "AIzaSyAMS_URZ1lFsbyJscsIjPvgENZouSbnX0A",
-  		authDomain: "order-cfe51.firebaseapp.com",
-  		projectId: "order-cfe51",
-  		storageBucket: "order-cfe51.firebasestorage.app",
-  		messagingSenderId: "1047726700523",
-  		appId: "1:1047726700523:web:0360158e7baca0d3450bae",
- 		measurementId: "G-45K52YE0BB"
-			};
+ 		apiKey: "AIzaSyAWzxJrQROhzSnVJCmTEUDfpYn-TJqHbHQ",
+ 		authDomain: "order-4f8a2.firebaseapp.com",
+ 		projectId: "order-4f8a2",
+ 		storageBucket: "order-4f8a2.appspot.com",
+ 		messagingSenderId: "69210404028",
+ 		appId: "1:69210404028:web:25fe58abbcbff4d1e9ccb9",
+ 		measurementId: "G-JBK15C76HS"
+		};
         
         if (!firebaseConfig.projectId || firebaseConfig.projectId === "YOUR_PROJECT_ID") {
             document.body.innerHTML = `<div class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
@@ -121,8 +120,10 @@
             let totalRevenue = 0;
             const menuSales = {};
             ordersToDisplay.forEach(order => { totalRevenue += order.totalPrice; });
-
-            const allItems = ordersToDisplay.flatMap(order => order.orderBatches.flatMap(batch => batch.items));
+            
+            const allItems = ordersToDisplay.flatMap(order => 
+                order.orderBatches ? order.orderBatches.flatMap(batch => batch.items) : (order.items || [])
+            );
             allItems.forEach(item => { menuSales[item.name] = (menuSales[item.name] || 0) + item.quantity; });
 
 
@@ -137,8 +138,7 @@
                 </div>`;
 
             orderList.innerHTML = '';
-            const statusPriority = { "주문 접수 중": 1, "요리 중": 2, "서빙 완료": 3, "처리 완료": 4 };
-            ordersToDisplay.sort((a, b) => (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99));
+            ordersToDisplay.sort((a,b) => a.timestamp.seconds - b.timestamp.seconds); // 시간 오름차순으로 정렬
             ordersToDisplay.forEach(order => {
                 const cardWrapper = document.createElement('div');
                 cardWrapper.innerHTML = createOrderCardHTML(order).trim();
@@ -151,7 +151,8 @@
             const statusBtnStyles = { "주문 접수 중": "bg-yellow-100 text-yellow-800", "요리 중": "bg-blue-100 text-blue-800", "서빙 완료": "bg-green-100 text-green-800", "처리 완료": "bg-gray-200 text-gray-500" };
             const highlightClass = order.isHighlighted ? 'highlight-new-order' : (statusStyles[order.status] || '');
 
-            const batchesHTML = (order.orderBatches || []).map((batch, index) => {
+            const batches = order.orderBatches || [{ acknowledged: true, items: order.items || [] }];
+            const batchesHTML = batches.map((batch, index) => {
                 const itemsHTML = batch.items.map(item => {
                     const textColor = !batch.acknowledged ? 'text-red-500 font-bold' : 'text-gray-700';
                     return `<p class="flex justify-between ${textColor}"><span>${item.name}</span><span>x${item.quantity}</span></p>`;
@@ -312,7 +313,9 @@
                 const orderRef = doc(db, "orders", orderId);
                 const orderSnap = await getDoc(orderRef);
                 if(orderSnap.exists()) {
-                    const updatedBatches = orderSnap.data().orderBatches.map(batch => ({ ...batch, acknowledged: true }));
+                    const orderData = orderSnap.data();
+                    const batches = orderData.orderBatches || [{ acknowledged: true, items: orderData.items || [] }];
+                    const updatedBatches = batches.map(batch => ({ ...batch, acknowledged: true }));
                     await updateDoc(orderRef, { 
                         status: status, 
                         isHighlighted: false,
@@ -359,7 +362,7 @@
                 if (document.getElementById('export-orders')?.checked) {
                     const isTotalView = viewingDay === 'all';
                     const ordersToExport = isTotalView ? allOrders : allOrders.filter(order => order.festivalDay === viewingDay);
-                    const data = ordersToExport.map(order => ({'주문시간': formatTimestamp(order.timestamp, true),'일차': order.festivalDay,'테이블': order.tableNumber,'메뉴': order.orderBatches.flatMap(b => b.items).map(item => `${item.name} x${item.quantity}`).join(', '),'총금액': order.totalPrice,'상태': order.status}));
+                    const data = ordersToExport.map(order => ({'주문시간': formatTimestamp(order.timestamp, true),'일차': order.festivalDay,'테이블': order.tableNumber,'메뉴': (order.orderBatches || [{items: order.items || []}]).flatMap(b => b.items).map(item => `${item.name} x${item.quantity}`).join(', '),'총금액': order.totalPrice,'상태': order.status}));
                     const ws = XLSX.utils.json_to_sheet(data);
                     XLSX.utils.book_append_sheet(wb, ws, `${isTotalView ? '전체' : viewingDay + '일차'} 주문내역`);
                     sheetsAdded++;
@@ -375,11 +378,13 @@
         function calculateSales(orders) {
             let totalRevenue = 0;
             const menuSales = {};
-            const allItems = orders.flatMap(order => order.orderBatches.flatMap(batch => batch.items));
+            const allItems = orders.flatMap(order => 
+                order.orderBatches ? order.orderBatches.flatMap(batch => batch.items) : (order.items || [])
+            );
             allItems.forEach(item => {
                 menuSales[item.name] = (menuSales[item.name] || 0) + item.quantity;
-                totalRevenue += item.price * item.quantity;
             });
+            totalRevenue = allItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             return { totalRevenue, menuSales };
         }
 
@@ -416,7 +421,7 @@
 
         onSnapshot(configRef, async (docSnap) => {
             if (docSnap.exists()) {
-                const newConfig = { dayTabs: [], activeDay: 1, ...docSnap.data() };
+                let newConfig = { dayTabs: [], activeDay: 1, ...docSnap.data() };
                 const validTabs = newConfig.dayTabs.filter(d => d && typeof d.day === 'number');
                 if(validTabs.length !== newConfig.dayTabs.length) {
                     console.warn("잘못된 탭 데이터를 감지하여 정리합니다.");
@@ -438,17 +443,27 @@
             renderDashboard();
         });
 
-        onSnapshot(query(collection(db, "orders"), orderBy("timestamp", "desc")), (snapshot) => {
+        onSnapshot(query(collection(db, "orders")), (snapshot) => {
             const newOrdersMap = new Map();
-            snapshot.docs.forEach(doc => newOrdersMap.set(doc.id, { id: doc.id, ...doc.data() }));
-
+            snapshot.docs.forEach(doc => {
+                let orderData = { id: doc.id, ...doc.data() };
+                // 데이터 구조 안정화 로직
+                if (!orderData.orderBatches && orderData.items) {
+                    orderData.orderBatches = [{ acknowledged: true, items: orderData.items }];
+                }
+                newOrdersMap.set(doc.id, orderData);
+            });
+            
             if (previousOrdersMap.size > 0 && !isMuted) {
                 newOrdersMap.forEach((order, id) => {
                     const prevOrder = previousOrdersMap.get(id);
-                    if (!prevOrder && order.isHighlighted) { // 신규 주문
-                        newOrderAudio.play().catch(e => console.log("사운드 재생 오류:", e));
-                    } else if (prevOrder && !prevOrder.isHighlighted && order.isHighlighted) { // 추가 주문
-                        additionalOrderAudio.play().catch(e => console.log("사운드 재생 오류:", e));
+                    if (order.isHighlighted && (!prevOrder || !prevOrder.isHighlighted)) {
+                        const isNewOrder = !prevOrder;
+                        if (isNewOrder) {
+                            newOrderAudio.play().catch(e => console.log("사운드 재생 실패:", e));
+                        } else {
+                            additionalOrderAudio.play().catch(e => console.log("사운드 재생 실패:", e));
+                        }
                     }
                 });
             }
@@ -460,5 +475,4 @@
     </script>
 </body>
 </html>
-
 
