@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>주문 관리 대ㅇ시보드</title>
+    <title>주문 관리 대시보드</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -315,42 +315,41 @@
             }
         });
 
-        onSnapshot(query(collection(db, "orders")), (snapshot) => {
-            const newOrdersMap = new Map();
-            snapshot.docs.forEach(doc => newOrdersMap.set(doc.id, { id: doc.id, ...doc.data() }));
+        onSnapshot(configRef, async (docSnap) => {
+            if (docSnap.exists()) {
+                config = { dayTabs: [], activeDay: 1, ...docSnap.data() };
+                if (viewingDay === null || (viewingDay !== 'all' && !(config.dayTabs || []).some(d => d.day === viewingDay))) {
+                    viewingDay = config.activeDay || ((config.dayTabs || []).length > 0 ? Math.max(...config.dayTabs.map(d => d.day)) : 'all');
+                }
+            } else {
+                const initialConfig = { dayTabs: [{day: 1, date: new Date().toISOString().split('T')[0]}], activeDay: 1 };
+                await setDoc(configRef, initialConfig);
+                config = initialConfig;
+                viewingDay = 1;
+            }
+            renderTabs();
+            renderDashboard();
+        });
 
-            // ✅ 모든 주문 업데이트/추가 시 소리 재생 로직 (수정된 부분)
-            if (previousOrdersMap.size > 0 && !isMuted) {
-                let shouldPlaySound = false;
-                
-                // 1. 새로운 주문이 추가되었는지 확인
-                if (newOrdersMap.size > previousOrdersMap.size) {
-                    shouldPlaySound = true;
-                } else {
-                    // 2. 기존 주문 내용이 변경되었는지 확인
-                    newOrdersMap.forEach((order, id) => {
-                        const prevOrder = previousOrdersMap.get(id);
-                        // 주문 ID가 존재하고, 두 주문 객체가 다를 경우 (상태 변경, isHighlighted 변경, 항목 추가 등)
-                        // JSON.stringify를 사용하여 객체 내용이 변경되었는지 비교
-                        if (prevOrder && JSON.stringify(prevOrder) !== JSON.stringify(order)) {
-                            shouldPlaySound = true;
-                        }
-                    });
-                }
-                
-                if (shouldPlaySound) {
-                    (additionalOrderAudio.cloneNode(true)).play().catch(e=>console.error(e));
-                }
-            }
-            // ⚠️ 주의: 이전 로직에서 'isHighlighted' 상태를 리셋하지 않았으므로, 
-            // isHighlighted가 true일 경우 상태 변경이 없어도 매번 소리가 날 수 있습니다. 
-            // 이는 현재 '모든 조건에 상관없이 무조건 주문하면' 이라는 요청에 부합합니다.
-            
-            allOrders = Array.from(newOrdersMap.values());
-            previousOrdersMap = new Map(newOrdersMap);
-            renderDashboard();
-        });
+        onSnapshot(query(collection(db, "orders")), (snapshot) => {
+            const newOrdersMap = new Map();
+            snapshot.docs.forEach(doc => newOrdersMap.set(doc.id, { id: doc.id, ...doc.data() }));
+
+            if (previousOrdersMap.size > 0 && !isMuted) {
+                newOrdersMap.forEach((order, id) => {
+                    const prevOrder = previousOrdersMap.get(id);
+                    if (order.isHighlighted && (!prevOrder || !prevOrder.isHighlighted)) {
+                        const isTrulyNew = !prevOrder || (prevOrder.orderBatches.length < order.orderBatches.length);
+                        if(isTrulyNew) (additionalOrderAudio.cloneNode(true)).play().catch(e=>console.error(e));
+                    }
+                });
+            }
+
+            allOrders = Array.from(newOrdersMap.values());
+            previousOrdersMap = new Map(newOrdersMap);
+            renderDashboard();
+        });
+
     </script>
 </body>
 </html>
-
