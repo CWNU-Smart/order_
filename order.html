@@ -43,7 +43,7 @@
                     </div>
                 </div>
             </template>
-        </div>
+            </div>
 
         <div id="order-summary" class="mt-8 bg-white p-6 rounded-xl shadow-lg sticky bottom-4 fade-in" style="animation-delay: 0.2s;">
             <h3 class="text-xl font-bold text-gray-800 mb-4">주문 내역</h3>
@@ -71,7 +71,7 @@
  		apiKey: "AIzaSyAMS_URZ1lFsbyJscsIjPvgENZouSbnX0A",
  		authDomain: "order-cfe51.firebaseapp.com",
  		projectId: "order-cfe51",
- 		storageBucket: "order-cfe51.appspot.com",
+ 		storageBucket: "order-cfe51.firebasestorage.app",
  		messagingSenderId: "1047726700523",
  		appId: "1:1047726700523:web:0360158e7baca0d3450bae",
  		measurementId: "G-45K52YE0BB"
@@ -115,6 +115,7 @@
             }
             fetchConfig();
 
+            // --- ✅ 새로운 메뉴 데이터 (자릿세 추가) ---
             const menuData = [
                 {
                     category: '🪑 자릿세(2시간)',
@@ -276,18 +277,15 @@
                         };
                         
                         const totalPrice = firstBatch.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                        const now = new Date();
-                        const timeString = now.toTimeString().split(' ')[0];
-                        const finalTimestamp = new Date(`${activeDayInfo.date}T${timeString}`);
 
                         await addDoc(collection(db, "orders"), {
-                            tableNumber: parsedTableNumber,
-                            orderBatches: [firstBatch],
-                            totalPrice: totalPrice,
-                            status: "주문 접수 중",
-                            timestamp: finalTimestamp,
-                            festivalDay: activeDayInfo.day,
-                            isHighlighted: true
+						    tableNumber: parsedTableNumber,
+						    orderBatches: [firstBatch],
+						    totalPrice: totalPrice,
+						    status: "주문 접수 중",
+						    timestamp: new Date(),
+						    festivalDay: activeDayInfo.day,
+						    isHighlighted: true
                         });
                         showAlert("주문 완료!", "주문이 성공적으로 접수되었습니다.", 2000);
                     }
@@ -302,3 +300,6 @@
     </script>
 </body>
 </html>
+
+
+
