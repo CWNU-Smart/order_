@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ㅇ주문 관리 대시보드</title>
+    <title>주문 관리 대시보드</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -24,7 +24,7 @@
 <body class="bg-gray-100">
 
     <audio id="new-order-sound" src="https://github.com/CWNU-Smart/order_/raw/refs/heads/main/ta-da_yrvBrlS.mp3" preload="auto"></audio>
-    <audio id="additional-order-sound" src="https://github.com/CWNU-Smart/order_/raw/refs/heads/main/ta-da_yrvBrlS.mp3" preload="auto"></audio>
+    <!-- ✅ 추가 주문 오디오 요소 제거 (하나로 통일) -->
 
     <div class="container mx-auto p-4 sm:p-6 lg:p-8">
         <header class="text-center my-6 relative">
@@ -77,7 +77,7 @@
         const modalContainer = document.getElementById('modal-container');
         const soundToggleBtn = document.getElementById('sound-toggle-btn');
         const newOrderAudio = document.getElementById('new-order-sound');
-        const additionalOrderAudio = document.getElementById('additional-order-sound');
+        // ✅ 추가 주문 오디오 변수 제거
         
         const soundOnIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>`;
         const soundOffIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l-2-2m0 0l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
@@ -230,7 +230,6 @@
                 showModal(`<div class="bg-white p-8 rounded-xl shadow-2xl text-center w-full max-w-sm"><h2 class="text-xl font-bold text-red-600 mb-4">${day}일차 삭제</h2><p class="text-gray-600 mb-4">삭제하려면 비밀번호를 입력하세요. 해당 일차의 모든 주문 내역이 영구적으로 삭제됩니다.</p><input id="password-input" type="password" class="w-full p-2 border rounded-md mb-4" placeholder="비밀번호"><div class="flex justify-center space-x-4"><button data-action="hideModal" class="px-6 py-2 bg-gray-300 rounded-lg">취소</button><button id="confirm-delete-day-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg">삭제 확인</button></div></div>`);
                 document.getElementById('confirm-delete-day-btn').onclick = () => appFunctions.confirmDeleteDay(day);
             },
-            // ✅ 일차 삭제 로직 수정
             confirmDeleteDay: async (dayToDelete) => {
                 const password = document.getElementById('password-input').value;
                 if (password !== DELETE_PASSWORD) {
@@ -239,21 +238,19 @@
                 }
                 if (!confirm(`정말로 ${dayToDelete}일차의 모든 데이터를 영구적으로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return;
                 
-                hideModal(); // 모달 먼저 닫기
+                hideModal();
 
                 try {
                     const batch = writeBatch(db);
                     
-                    // 해당 일차의 모든 주문 문서를 삭제 목록에 추가
                     const ordersToDeleteQuery = query(collection(db, "orders"), where("festivalDay", "==", dayToDelete));
                     const ordersToDeleteSnapshot = await getDocs(ordersToDeleteQuery);
                     ordersToDeleteSnapshot.forEach(doc => batch.delete(doc.ref));
                     
-                    // 설정에서 해당 일차 탭 정보 제거
                     const updatedTabs = config.dayTabs.filter(d => d.day !== dayToDelete);
                     let newActiveDay = config.activeDay;
                     if (config.activeDay === dayToDelete) {
-                        newActiveDay = null; // 활성 일차였다면 비활성화
+                        newActiveDay = null;
                     }
                     
                     batch.set(configRef, { 
@@ -264,7 +261,6 @@
                     await batch.commit();
                     
                     alert(`${dayToDelete}일차 데이터가 성공적으로 삭제되었습니다.`);
-                    // onSnapshot이 자동으로 화면을 갱신하므로 수동 갱신 불필요
                 } catch (error) { 
                     console.error("일차 삭제 중 오류 발생:", error); 
                     alert("데이터 삭제 중 오류가 발생했습니다: " + error.message); 
@@ -329,12 +325,10 @@
                 `);
                 document.getElementById('confirm-export-btn').onclick = appFunctions.exportToExcel;
             },
-            // ✅ 엑셀 내보내기 로직 수정
             exportToExcel: () => {
                 const wb = XLSX.utils.book_new();
                 let sheetsAdded = 0;
 
-                // 상세 매출 계산 함수 (가격, 수량, 합계 포함)
                 const calculateDetailedSales = (orders) => {
                     const sales = {};
                     const allItems = orders.flatMap(o => (o.orderBatches || []).flatMap(b => b.items));
@@ -355,7 +349,6 @@
 
                 const isTotalView = viewingDay === 'all';
                 
-                // 일일 매출 요약 시트
                 if (document.getElementById('export-daily-sales')?.checked && !isTotalView) {
                     const dailyOrders = allOrders.filter(order => order.festivalDay === viewingDay);
                     const detailedSales = calculateDetailedSales(dailyOrders);
@@ -364,7 +357,7 @@
                     const wsData = [
                         ['메뉴명', '판매 수량', '합계 금액'],
                         ...Object.entries(detailedSales).map(([name, data]) => [name, data.quantity, data.total]),
-                        [], // 빈 줄
+                        [],
                         ['총 매출', '', totalRevenue]
                     ];
                     const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -372,7 +365,6 @@
                     sheetsAdded++;
                 }
 
-                // 전체 매출 요약 시트
                 if (document.getElementById('export-total-sales')?.checked) {
                     const detailedSales = calculateDetailedSales(allOrders);
                     const totalRevenue = Object.values(detailedSales).reduce((sum, item) => sum + item.total, 0);
@@ -388,7 +380,6 @@
                     sheetsAdded++;
                 }
 
-                // 주문 내역 상세 시트
                 if (document.getElementById('export-orders')?.checked) {
                     const ordersToExport = isTotalView ? allOrders : allOrders.filter(order => order.festivalDay === viewingDay);
                     const data = ordersToExport.map(order => ({
@@ -473,7 +464,7 @@
                     }
                     // B. 추가 주문 감지: 이전 주문이 있었고, 하이라이트가 아니었는데 하이라이트로 바뀌었을 때
                     else if (prevOrder && !prevOrder.isHighlighted && order.isHighlighted) {
-                        additionalOrderAudio.cloneNode(true).play().catch(e => console.error("Additional order sound error:", e));
+                        newOrderAudio.cloneNode(true).play().catch(e => console.error("Additional order sound error:", e));
                     }
                 });
             }
@@ -485,6 +476,4 @@
     </script>
 </body>
 </html>
-
-
 
