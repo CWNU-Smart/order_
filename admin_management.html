@@ -256,17 +256,35 @@
             },
             confirmDelete: async (orderId) => { await deleteDoc(doc(db, "orders", orderId)); hideModal(); },
             updateStatus: async (orderId, status) => {
-                const orderRef = doc(db, "orders", orderId);
-                const updateData = { status: status, isHighlighted: false };
-                if(status !== '주문 접수 중') {
-                    const orderSnap = await getDoc(orderRef);
-                    if(orderSnap.exists()) {
-                        const updatedBatches = (orderSnap.data().orderBatches || []).map(batch => ({ ...batch, acknowledged: true }));
-                        updateData.orderBatches = updatedBatches;
-                    }
-                }
-                await updateDoc(orderRef, updateData);
-            },
+    const orderRef = doc(db, "orders", orderId);
+    const orderSnap = await getDoc(orderRef);
+    let statusHistory = [];
+
+    if(orderSnap.exists()) {
+        const data = orderSnap.data();
+        statusHistory = data.statusHistory || [];
+        statusHistory.push({
+            status,
+            time: new Date().toISOString()
+        });
+
+        const updateData = { 
+            status: status, 
+            isHighlighted: false, 
+            statusHistory 
+        };
+
+        // '주문 접수 중'이 아닌 경우에는 배치도 확인 처리
+        if(status !== '주문 접수 중') {
+            const updatedBatches = (data.orderBatches || []).map(batch => ({
+                ...batch, 
+                acknowledged: true 
+            }));
+            updateData.orderBatches = updatedBatches;
+        }
+        await updateDoc(orderRef, updateData);
+    }
+},
             hideModal: hideModal
         };
 
