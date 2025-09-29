@@ -23,8 +23,8 @@
 </head>
 <body class="bg-gray-100">
 
-    <audio id="new-order-sound" src="https://cwnu-smart.github.io/order_/baedalyi-minjog.mp3" preload="auto"></audio>
-    <audio id="additional-order-sound" src="https://cwnu-smart.github.io/order_/baedalyi-minjog.mp3" preload="auto"></audio>
+    <audio id="new-order-sound" src="https://github.com/CWNU-Smart/order_/raw/refs/heads/main/ta-da_yrvBrlS.mp3" preload="auto"></audio>
+    <audio id="additional-order-sound" src="https://github.com/CWNU-Smart/order_/raw/refs/heads/main/ta-da_yrvBrlS.mp3" preload="auto"></audio>
 
     <div class="container mx-auto p-4 sm:p-6 lg:p-8">
         <header class="text-center my-6 relative">
@@ -466,9 +466,14 @@
             if (previousOrdersMap.size > 0 && !isMuted) {
                 newOrdersMap.forEach((order, id) => {
                     const prevOrder = previousOrdersMap.get(id);
-                    if (order.isHighlighted && (!prevOrder || prevOrder.isHighlighted !== order.isHighlighted)) {
-                        const isTrulyNew = !prevOrder || (prevOrder.orderBatches.length < order.orderBatches.length);
-                        if(isTrulyNew) (additionalOrderAudio.cloneNode(true)).play().catch(e=>console.error(e));
+
+                    // A. 신규 주문 감지: 이전 주문이 없었는데 새로 생겼고, 하이라이트 상태일 때
+                    if (!prevOrder && order.isHighlighted) {
+                        newOrderAudio.cloneNode(true).play().catch(e => console.error("New order sound error:", e));
+                    }
+                    // B. 추가 주문 감지: 이전 주문이 있었고, 하이라이트가 아니었는데 하이라이트로 바뀌었을 때
+                    else if (prevOrder && !prevOrder.isHighlighted && order.isHighlighted) {
+                        additionalOrderAudio.cloneNode(true).play().catch(e => console.error("Additional order sound error:", e));
                     }
                 });
             }
@@ -480,4 +485,5 @@
     </script>
 </body>
 </html>
+
 
