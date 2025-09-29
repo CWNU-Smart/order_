@@ -121,11 +121,11 @@
                     items: [ { id: 'seat-charge', name: '1인', price: 3000 } ]
                 },
                 {
-                    category: '🍗 치킨류',
+                    category: '🍗 치킨류(순살)',
                     items: [
-                        { id: 'fried-chicken', name: '스제치킨(순살)', price: 16900 },
-                        { id: 'yangnyeom-chicken', name: '양념치킨(순살)', price: 17900 },
-                        { id: 'supreme-yangnyeom-chicken', name: '뿌링클치킨(순살)', price: 17900 },
+                        { id: 'fried-chicken', name: '스제치킨', price: 16900 },
+                        { id: 'yangnyeom-chicken', name: '양념치킨', price: 17900 },
+                        { id: 'supreme-yangnyeom-chicken', name: '뿌링클치킨', price: 17900 },
                     ]
                 },
                 {
@@ -140,6 +140,13 @@
                         { id: 'pepsi-zero', name: '펩시제로', price: 2000 },
                         { id: 'water', name: '물', price: 1000 },
                         // 🚨 가격이 없는 메뉴는 price: 0으로 설정해야 계산 오류가 발생하지 않습니다.
+                        { id: 'employee', name: '직원 호출', price: 0},
+                        { id: 'snack', name: '과자 리필', price: 0}
+                    ]
+                },
+                 {
+                    category: '🧑‍🍳 호출',
+                    items: [
                         { id: 'employee', name: '직원 호출', price: 0},
                         { id: 'snack', name: '과자 리필', price: 0}
                     ]
@@ -281,3 +288,4 @@
     </script>
 </body>
 </html>
+
