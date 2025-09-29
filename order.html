@@ -19,7 +19,6 @@
 
     <div class="container mx-auto max-w-lg p-4">
         <header class="text-center my-6">
-            <h1 class="text-4xl font-bold text-indigo-600">🔥 술융덩이 🔥</h1>
             <h1 class="text-4xl font-bold text-indigo-600">🔥 스제치킨 융융죽겠지 🔥</h1>
             <p class="text-gray-600 mt-2">간편하게 주문하세요!</p>
         </header>
@@ -96,7 +95,7 @@
             const db = getFirestore(app);
 
             let configData = null;
-
+            
             async function fetchConfig() {
                 const configRef = doc(db, "festivalConfig", "settings");
                 try {
@@ -161,16 +160,16 @@
 
                 categoryInfo.items.forEach(item => {
                     const clone = menuItemTemplate.content.cloneNode(true);
-
+                    
                     clone.querySelector('h3').textContent = item.name;
                     clone.querySelector('p').textContent = `${item.price.toLocaleString()}원`;
-
+                    
                     const [minusBtn, plusBtn] = clone.querySelectorAll('.quantity-change');
                     const quantitySpan = clone.querySelector('.quantity');
-
+                    
                     minusBtn.addEventListener('click', () => updateQuantity(item, -1, quantitySpan));
                     plusBtn.addEventListener('click', () => updateQuantity(item, 1, quantitySpan));
-
+                    
                     menuSection.appendChild(clone);
                     cart[item.id] = { ...item, quantity: 0 };
                 });
@@ -228,7 +227,7 @@
                     submitOrderBtn.disabled = false;
                     return;
                 }
-
+                
                 const orderedItems = Object.values(cart).filter(item => item.quantity > 0);
                 if (orderedItems.length === 0) {
                     showAlert("입력 오류", "메뉴를 선택해주세요.");
@@ -246,17 +245,17 @@
                     );
 
                     const querySnapshot = await getDocs(q);
-
+                    
                     if (!querySnapshot.empty) {
                         // --- 추가 주문 로직 ---
                         const existingOrderDoc = querySnapshot.docs[0];
                         const existingData = existingOrderDoc.data();
-
+                        
                         const newBatch = {
                             acknowledged: false,
                             items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price }))
                         };
-
+                        
                         const existingBatches = existingData.orderBatches || [{ acknowledged: true, items: existingData.items || [] }];
 
                         const updatedBatches = [...existingBatches, newBatch];
@@ -276,7 +275,7 @@
                             acknowledged: false,
                             items: orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price }))
                         };
-
+                        
                         const totalPrice = firstBatch.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
                         await addDoc(collection(db, "orders"), {
