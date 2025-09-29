@@ -9,7 +9,6 @@
     <style>
         body { 
             font-family: 'Inter', sans-serif;
-            /* ❗️아래 url() 안에 실제 이미지 주소를 넣어주세요. */
             background-image: url('https://i.imgur.com/hiVFR2Z.png');
             background-size: cover;
             background-repeat: no-repeat;
@@ -27,10 +26,10 @@
 
     <div class="container mx-auto max-w-lg p-4">
         <header class="text-center my-6">
-            <div class="text-yellow-400 text-2xl">★★★★&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;★★★★</div>
-            <h2 class="text-2xl font-bold text-red-500 tracking-wider">스마트제조융합전공 주점</h2>
-            <h1 class="text-5xl font-extrabold text-blue-600 mt-2">융융죽겠지</h1>
-            <p class="text-white mt-3">간편하게 주문하세요!</p>
+            <div class="text-yellow-400 text-1g" style="text-shadow: 1px 1px 3px black;">★★★★&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;★★★★</div>
+            <h2 class="text-2xl font-bold text-red-500 tracking-wider" style="text-shadow: 1px 1px 3px rgba(0,0,0,0.5);">스마트제조융합전공 주점</h2>
+            <h1 class="text-5xl font-extrabold text-blue-600 mt-2" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">융융죽겠지</h1>
+            <p class="text-white mt-3" style="text-shadow: 1px 1px 3px black;">간편하게 주문하세요!</p>
         </header>
 
         <div class="bg-white p-6 rounded-xl shadow-md mb-6 fade-in">
@@ -39,7 +38,7 @@
         </div>
 
         <div id="menu-section" class="space-y-4 fade-in" style="animation-delay: 0.1s;">
-            <h2 class="text-2xl font-bold text-white mb-4">메뉴판</h2>
+             <h2 class="text-2xl font-bold text-white mb-4">메뉴판</h2>
             <template id="menu-item-template">
                 <div class="bg-white p-4 rounded-xl shadow-md flex items-center justify-between">
                     <div>
@@ -165,12 +164,16 @@
             const menuSection = document.getElementById('menu-section');
             const menuItemTemplate = document.getElementById('menu-item-template');
             const cart = {};
-
-            menuSection.innerHTML = '<h2 class="text-2xl font-bold text-gray-800 mb-4">메뉴판</h2>'; 
+            
+            // ✅ "메뉴판" 글씨를 흰색으로 변경하고 그림자 효과 추가
+            menuSection.innerHTML = '<h2 class="text-2xl font-bold text-white mb-4" style="text-shadow: 1px 1px 3px black;">메뉴판</h2>'; 
 
             menuData.forEach(categoryInfo => {
                 const categoryTitle = document.createElement('h3');
-                categoryTitle.className = 'text-xl font-bold text-gray-700 mt-8 mb-3';
+                // ✅ 카테고리 글씨를 흰색으로 변경
+                categoryTitle.className = 'text-xl font-bold text-white mt-8 mb-3';
+                 // ✅ 그림자 효과 추가
+                categoryTitle.style.textShadow = '1px 1px 3px black';
                 categoryTitle.textContent = categoryInfo.category;
                 menuSection.appendChild(categoryTitle);
 
@@ -256,7 +259,6 @@
                     const newItems = orderedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price }));
 
                     if (!querySnapshot.empty) {
-                        // --- 추가 주문 로직 ---
                         const existingOrderDoc = querySnapshot.docs[0];
                         const existingData = existingOrderDoc.data();
                         
@@ -273,7 +275,6 @@
                         });
                         showAlert("추가 주문 완료!", "기존 주문에 메뉴가 추가되었습니다.", 2000);
                     } else {
-                        // --- 신규 주문 로직 ---
                         const firstBatch = { acknowledged: false, items: newItems };
                         const totalPrice = firstBatch.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
@@ -301,11 +302,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
