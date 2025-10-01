@@ -164,15 +164,12 @@
             const menuSection = document.getElementById('menu-section');
             const menuItemTemplate = document.getElementById('menu-item-template');
             const cart = {};
-            
-            // ✅ "메뉴판" 글씨를 흰색으로 변경하고 그림자 효과 추가
+        
             menuSection.innerHTML = '<h2 class="text-2xl font-bold text-white mb-4" style="text-shadow: 1px 1px 3px black;">메뉴판</h2>'; 
 
             menuData.forEach(categoryInfo => {
                 const categoryTitle = document.createElement('h3');
-                // ✅ 카테고리 글씨를 흰색으로 변경
                 categoryTitle.className = 'text-xl font-bold text-white mt-8 mb-3';
-                 // ✅ 그림자 효과 추가
                 categoryTitle.style.textShadow = '1px 1px 3px black';
                 categoryTitle.textContent = categoryInfo.category;
                 menuSection.appendChild(categoryTitle);
@@ -302,6 +299,7 @@
     </script>
 </body>
 </html>
+
 
 
 
